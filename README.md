@@ -26,7 +26,9 @@ Free, self-hosted alternative to Multilogin, GoLogin, and AdsPower.
 Each profile is an isolated CloakBrowser instance with its own fingerprint, proxy, cookies, and session data. Profiles persist across restarts. Everything runs in one Docker container.
 
 ```bash
-docker run -p 8080:8080 -v cloakprofiles:/data cloakhq/cloakbrowser-manager
+docker run --init -p 8080:8080 -v cloakprofiles:/data \
+  -e KEEPASSXC_DATABASE_PASSWORD=your-database-secret \
+  cloakhq/cloakbrowser-manager
 ```
 
 Or build from source:
@@ -60,6 +62,7 @@ Each CloakBrowser profile generates a completely different device identity. To t
 - **Per-profile settings** — fingerprint seed, proxy, timezone, locale, user agent, screen size, platform
 - **One-click launch/stop** — each profile runs as an isolated CloakBrowser instance
 - **Session persistence** — cookies, localStorage, and cache survive browser restarts
+- **Passkey support** — each profile can run an isolated KeePassXC database through the bundled KeePassXC-Browser extension
 - **In-browser viewing** — interact with launched browsers via noVNC, directly in the web GUI
 - **Playwright/Puppeteer API** — connect to any running profile programmatically via CDP, while still watching it live in the browser
 - **Optional authentication** — protect the web UI and API with a single token, or run wide open locally
@@ -98,6 +101,51 @@ npm run dev
 docker compose up --build
 ```
 
+The included Compose configuration uses `change-me-keepassxc` as a development
+default for `KEEPASSXC_DATABASE_PASSWORD`. Set a private value before production
+use:
+
+```bash
+export KEEPASSXC_DATABASE_PASSWORD='replace-with-a-strong-secret'
+docker compose up --build
+```
+
+New profiles include both `--disable-extensions-except` and `--load-extension`
+arguments for the bundled KeePassXC-Browser extension. The first overrides
+CloakBrowser's extension-disable default; the second loads the unpacked
+extension and is also the KeePassXC lifecycle switch. Removing the
+`--load-extension=/opt/cloakbrowser/extensions/keepassxc-browser` argument
+prevents KeePassXC from starting for that profile. Each enabled profile stores
+its database and KeePassXC configuration under
+`/data/profiles/<profile-id>/KeePassXC`.
+
+The manager reads the database password once at startup, removes it from its
+child-process environment, and sends it to KeePassXC only through standard
+input. Changing the environment value does not re-encrypt existing databases;
+profiles created with the old value will fail to start until the matching
+password is restored or their database is re-encrypted manually.
+
+For profiles using KeePassXC, the browser viewer toolbar includes a key button.
+It brings KeePassXC to the front and fills the VNC display; clicking it again
+while KeePassXC has focus hides all of its windows, then restores, fills, and
+focuses that profile's Chromium window. Profiles without the bundled extension
+load argument do not show this button.
+
+Non-headless Chromium windows are also restored, positioned at the display
+origin, filled to the configured VNC resolution, and focused after launch.
+
+The Compose service uses `init: true`, and direct `docker run` examples use
+`--init`, so PID 1 reaps orphaned Chromium, Crashpad, KeePassXC Browser Proxy,
+and clipboard helper processes. Recreate existing containers after upgrading;
+restarting a container created without an init process does not add one.
+
+The image uses KeePassXC 2.7.12 from its checksum-pinned official x86_64
+AppImage. Its bundled Qt runtime avoids the reproducible system-Qt crash that
+can occur when a distro build is unlocked with `--pw-stdin` as a background
+process. KeePassXC does not currently publish a Linux arm64 AppImage, so this
+Docker build targets amd64 rather than silently falling back to the affected
+distro runtime.
+
 ## Requirements
 
 - Docker (20.10+)
@@ -111,7 +159,9 @@ Pull the latest image and restart:
 ```bash
 docker pull cloakhq/cloakbrowser-manager
 docker stop <container-id>
-docker run -p 8080:8080 -v cloakprofiles:/data cloakhq/cloakbrowser-manager
+docker run --init -p 8080:8080 -v cloakprofiles:/data \
+  -e KEEPASSXC_DATABASE_PASSWORD=your-database-secret \
+  cloakhq/cloakbrowser-manager
 ```
 
 Your profiles and session data are stored in the `cloakprofiles` volume and persist across updates.
@@ -158,7 +208,10 @@ Then open `http://localhost:8080`.
 By default, there is no authentication (ideal for local use). To protect the web UI and API when hosting on a network, set the `AUTH_TOKEN` environment variable:
 
 ```bash
-docker run -p 8080:8080 -v cloakprofiles:/data -e AUTH_TOKEN=your-secret-token cloakhq/cloakbrowser-manager
+docker run --init -p 8080:8080 -v cloakprofiles:/data \
+  -e AUTH_TOKEN=your-secret-token \
+  -e KEEPASSXC_DATABASE_PASSWORD=your-database-secret \
+  cloakhq/cloakbrowser-manager
 ```
 
 Or in `docker-compose.yml`:
@@ -166,6 +219,7 @@ Or in `docker-compose.yml`:
 ```yaml
 environment:
   - AUTH_TOKEN=your-secret-token
+  - KEEPASSXC_DATABASE_PASSWORD=your-database-secret
 ```
 
 When `AUTH_TOKEN` is set:

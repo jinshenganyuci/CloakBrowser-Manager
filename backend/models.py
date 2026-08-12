@@ -126,6 +126,10 @@ class ProfileStatusResponse(BaseModel):
     cdp_url: str | None = None
 
 
+class KeePassXCWindowResponse(BaseModel):
+    state: Literal["shown", "minimized"]
+
+
 class ClipboardRequest(BaseModel):
     text: str = Field(max_length=1_048_576)  # 1MB max
 

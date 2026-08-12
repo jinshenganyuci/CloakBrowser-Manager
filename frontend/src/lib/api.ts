@@ -73,6 +73,10 @@ export interface SystemStatus {
   profiles_total: number;
 }
 
+export interface KeePassXCWindowResult {
+  state: "shown" | "minimized";
+}
+
 class ApiError extends Error {
   constructor(
     public status: number,
@@ -144,6 +148,11 @@ export const api = {
 
   stopProfile: (id: string) =>
     request<{ ok: boolean }>(`/api/profiles/${id}/stop`, { method: "POST" }),
+
+  toggleKeePassXCWindow: (id: string) =>
+    request<KeePassXCWindowResult>(`/api/profiles/${id}/keepassxc/toggle-window`, {
+      method: "POST",
+    }),
 
   getStatus: () => request<SystemStatus>("/api/status"),
 

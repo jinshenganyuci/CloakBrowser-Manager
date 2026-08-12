@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -12,9 +14,22 @@ import socket
 from backend.browser_manager import (
     BASE_CDP_PORT,
     CDP_PORT_RANGE,
+    KEEPASSXC_EXTENSION_ARG,
+    KEEPASSXC_EXTENSION_DIR,
+    KEEPASSXC_PASSWORD_ENV,
+    BrowserLaunchError,
+    KeePassXCPaths,
+    KeePassXCUnavailableError,
+    RunningProfile,
+    _build_profile_process_env,
+    _ensure_keepassxc_config,
     _init_profile_defaults,
+    _keepassxc_paths,
+    _launch_args_include_keepassxc,
     _normalize_proxy,
+    _set_ini_root_value,
     _validate_proxy,
+    require_keepassxc_password,
     BrowserManager,
 )
 
@@ -174,6 +189,314 @@ def test_launch_args_none_no_effect():
     base_count = len(args)
     args += profile.get("launch_args") or []
     assert len(args) == base_count
+
+
+# ── KeePassXC launch argument detection ─────────────────────────────────────
+
+
+def test_keepassxc_extension_arg_is_detected():
+    assert _launch_args_include_keepassxc([KEEPASSXC_EXTENSION_ARG]) is True
+
+
+def test_keepassxc_extension_in_comma_separated_list_is_detected():
+    arg = f"--load-extension=/tmp/other,{KEEPASSXC_EXTENSION_DIR}"
+    assert _launch_args_include_keepassxc([arg]) is True
+
+
+def test_keepassxc_extension_separate_value_is_detected():
+    assert _launch_args_include_keepassxc([
+        "--load-extension",
+        str(KEEPASSXC_EXTENSION_DIR),
+    ]) is True
+
+
+def test_similar_keepassxc_extension_path_is_not_detected():
+    assert _launch_args_include_keepassxc([
+        f"--load-extension={KEEPASSXC_EXTENSION_DIR}-copy",
+    ]) is False
+
+
+def test_missing_keepassxc_extension_arg_is_disabled():
+    assert _launch_args_include_keepassxc(["--disable-features=Foo"]) is False
+
+
+def test_allow_arg_without_load_arg_does_not_enable_keepassxc():
+    assert _launch_args_include_keepassxc([
+        f"--disable-extensions-except={KEEPASSXC_EXTENSION_DIR}",
+    ]) is False
+
+
+# ── KeePassXC configuration and environment ─────────────────────────────────
+
+
+def _test_keepassxc_paths(tmp_path: Path) -> KeePassXCPaths:
+    data_dir = tmp_path / "KeePassXC"
+    runtime_dir = tmp_path / "runtime"
+    return KeePassXCPaths(
+        data_dir=data_dir,
+        database=data_dir / "passwords.kdbx",
+        config=data_dir / "keepassxc.ini",
+        local_config=data_dir / "keepassxc-local.ini",
+        runtime_dir=runtime_dir,
+        socket=runtime_dir / "app/server",
+        log=tmp_path / "keepassxc.log",
+    )
+
+
+def test_keepassxc_runtime_path_is_unique_and_fits_unix_socket_limit(tmp_path: Path):
+    first = _keepassxc_paths(
+        "1ddf0705-3816-4258-b749-1f8b1d1a432f",
+        tmp_path / "first",
+    )
+    second = _keepassxc_paths(
+        "917e1609-1b54-4761-90b4-f8bfdb04a691",
+        tmp_path / "second",
+    )
+
+    assert first.runtime_dir != second.runtime_dir
+    assert first.runtime_dir.parent == Path("/tmp/cbm")
+    assert len(first.runtime_dir.name) == 22
+    assert len(os.fsencode(first.socket)) < 108
+
+
+def test_set_ini_root_value_updates_only_root_key():
+    lines = ["SingleInstance=true", "", "[General]", "SingleInstance=true"]
+    _set_ini_root_value(lines, "SingleInstance", "false")
+    assert lines == ["SingleInstance=false", "", "[General]", "SingleInstance=true"]
+
+
+def test_ensure_keepassxc_config_enables_browser_and_preserves_settings(tmp_path: Path):
+    paths = _test_keepassxc_paths(tmp_path)
+    paths.data_dir.mkdir()
+    paths.config.write_text("Theme=dark\n\n[Browser]\nShowNotification=false\n")
+
+    _ensure_keepassxc_config(paths)
+
+    config = paths.config.read_text()
+    assert "Theme=dark" in config
+    assert "SingleInstance=false" in config
+    assert "[Browser]" in config
+    assert "Enabled=true" in config
+    assert "UpdateBinaryPath=false" in config
+    assert "ShowNotification=false" in config
+    assert paths.local_config.exists()
+    assert paths.config.stat().st_mode & 0o777 == 0o600
+
+
+def test_profile_process_env_removes_password(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv(KEEPASSXC_PASSWORD_ENV, "top-secret")
+    paths = _test_keepassxc_paths(tmp_path)
+
+    env = _build_profile_process_env(123, paths.runtime_dir, keepassxc_paths=paths)
+
+    assert KEEPASSXC_PASSWORD_ENV not in env
+    assert env["DISPLAY"] == ":123"
+    assert env["XDG_RUNTIME_DIR"] == str(paths.runtime_dir)
+    assert env["TMPDIR"] == str(paths.runtime_dir)
+    assert env["KPXC_CONFIG"] == str(paths.config)
+
+
+def test_manager_loads_password_once_and_removes_environment(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setenv(KEEPASSXC_PASSWORD_ENV, "top-secret")
+    manager = BrowserManager()
+
+    manager.load_keepassxc_password()
+
+    assert manager._keepassxc_password == "top-secret"
+    assert KEEPASSXC_PASSWORD_ENV not in os.environ
+
+
+def test_keepassxc_password_rejects_newlines(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(KEEPASSXC_PASSWORD_ENV, "first-line\nsecond-line")
+
+    with pytest.raises(RuntimeError, match="newline"):
+        require_keepassxc_password()
+
+
+@pytest.mark.asyncio
+async def test_create_database_sends_password_twice(tmp_path: Path):
+    manager = BrowserManager()
+    manager._run_keepassxc_cli = AsyncMock(return_value=(0, ""))
+    database = tmp_path / "passwords.kdbx"
+
+    await manager._create_keepassxc_database(database, "secret", {})
+
+    manager._run_keepassxc_cli.assert_awaited_once_with(
+        ["db-create", "--quiet", "--set-password", str(database)],
+        "secret\nsecret\n",
+        {},
+    )
+
+
+@pytest.mark.asyncio
+async def test_verify_database_failure_is_user_actionable(tmp_path: Path):
+    manager = BrowserManager()
+    manager._run_keepassxc_cli = AsyncMock(return_value=(1, "Invalid credentials"))
+
+    with pytest.raises(BrowserLaunchError, match=KEEPASSXC_PASSWORD_ENV):
+        await manager._verify_keepassxc_database(
+            tmp_path / "passwords.kdbx",
+            "wrong-password",
+            {},
+        )
+
+
+@pytest.mark.asyncio
+async def test_cleanup_keepassxc_terminates_process_and_runtime(tmp_path: Path):
+    manager = BrowserManager()
+    runtime_dir = tmp_path / "runtime"
+    runtime_dir.mkdir()
+    (runtime_dir / "socket").touch()
+    process = MagicMock()
+    process.returncode = None
+    process.wait = AsyncMock(return_value=0)
+
+    await manager._cleanup_keepassxc(process, runtime_dir)
+
+    process.terminate.assert_called_once()
+    process.wait.assert_awaited_once()
+    assert not runtime_dir.exists()
+
+
+def _running_profile_with_keepassxc(tmp_path: Path) -> tuple[RunningProfile, MagicMock]:
+    process = MagicMock()
+    process.pid = 4242
+    process.returncode = None
+    running = RunningProfile(
+        profile_id="profile-with-keepassxc",
+        context=MagicMock(),
+        display=123,
+        ws_port=6123,
+        cdp_port=5123,
+        keepassxc_process=process,
+        keepassxc_runtime_dir=tmp_path / "runtime",
+    )
+    return running, process
+
+
+@pytest.mark.asyncio
+async def test_toggle_keepassxc_window_minimizes_when_focused(tmp_path: Path):
+    manager = BrowserManager()
+    running, _ = _running_profile_with_keepassxc(tmp_path)
+    running.user_data_dir = tmp_path / "profile"
+    manager.running[running.profile_id] = running
+    manager._find_keepassxc_window = AsyncMock(
+        return_value=("12345", ["12345", "12346"])
+    )
+    manager._find_chromium_window = AsyncMock(return_value="54321")
+    manager._maximize_chromium_window = AsyncMock()
+    manager._run_xdotool = AsyncMock(side_effect=[
+        (0, "98765"),
+        (0, "4242"),
+        (0, ""),
+        (0, ""),
+    ])
+
+    state = await manager.toggle_keepassxc_window(running.profile_id)
+
+    assert state == "minimized"
+    assert manager._run_xdotool.await_args_list == [
+        ((123, running.keepassxc_runtime_dir, ["getwindowfocus"]),),
+        ((123, running.keepassxc_runtime_dir, ["getwindowpid", "98765"]),),
+        ((123, running.keepassxc_runtime_dir, ["windowunmap", "--sync", "12346"]),),
+        ((123, running.keepassxc_runtime_dir, ["windowunmap", "--sync", "12345"]),),
+    ]
+    manager._find_chromium_window.assert_awaited_once_with(
+        running,
+        running.keepassxc_runtime_dir,
+    )
+    manager._maximize_chromium_window.assert_awaited_once_with(
+        running,
+        running.keepassxc_runtime_dir,
+        window_id="54321",
+    )
+
+
+@pytest.mark.asyncio
+async def test_maximize_chromium_window_fills_display(tmp_path: Path):
+    manager = BrowserManager()
+    running, _ = _running_profile_with_keepassxc(tmp_path)
+    manager._get_display_geometry = AsyncMock(return_value=(1280, 720))
+    manager._find_chromium_window = AsyncMock(return_value="54321")
+    manager._run_xdotool = AsyncMock(side_effect=[
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, "X=0\nY=0\nWIDTH=1280\nHEIGHT=720"),
+    ])
+
+    await manager._maximize_chromium_window(
+        running,
+        running.keepassxc_runtime_dir,
+    )
+
+    commands = [call.args[2] for call in manager._run_xdotool.await_args_list]
+    assert commands == [
+        ["windowmap", "--sync", "54321"],
+        ["windowmove", "--sync", "54321", "0", "0"],
+        ["windowsize", "--sync", "54321", "1280", "720"],
+        ["windowraise", "54321"],
+        ["windowfocus", "--sync", "54321"],
+        ["getwindowgeometry", "--shell", "54321"],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_toggle_keepassxc_window_restores_and_maximizes(tmp_path: Path):
+    manager = BrowserManager()
+    running, _ = _running_profile_with_keepassxc(tmp_path)
+    manager.running[running.profile_id] = running
+    manager._find_keepassxc_window = AsyncMock(
+        return_value=("12345", ["12345", "12346"])
+    )
+    manager._run_xdotool = AsyncMock(side_effect=[
+        (0, "98765"),
+        (0, "7777"),
+        (0, "1280 720"),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+        (0, ""),
+    ])
+
+    state = await manager.toggle_keepassxc_window(running.profile_id)
+
+    assert state == "shown"
+    commands = [call.args[2] for call in manager._run_xdotool.await_args_list]
+    assert commands == [
+        ["getwindowfocus"],
+        ["getwindowpid", "98765"],
+        ["getdisplaygeometry"],
+        ["windowmap", "--sync", "12345"],
+        ["windowmap", "--sync", "12346"],
+        ["windowmove", "12345", "0", "0"],
+        ["windowsize", "12345", "1280", "720"],
+        ["windowraise", "12345"],
+        ["windowraise", "12346"],
+        ["windowfocus", "--sync", "12346"],
+    ]
+
+
+@pytest.mark.asyncio
+async def test_toggle_keepassxc_window_rejects_unpaired_profile(tmp_path: Path):
+    manager = BrowserManager()
+    manager.running["without-keepassxc"] = RunningProfile(
+        profile_id="without-keepassxc",
+        context=MagicMock(),
+        display=123,
+        ws_port=6123,
+        cdp_port=5123,
+    )
+
+    with pytest.raises(KeePassXCUnavailableError, match="not enabled"):
+        await manager.toggle_keepassxc_window("without-keepassxc")
 
 
 # ── _allocate_cdp_port ───────────────────────────────────────────────────────

@@ -93,6 +93,25 @@ describe("api.stopProfile", () => {
   });
 });
 
+// ── toggleKeePassXCWindow ──────────────────────────────────────────────────
+
+describe("api.toggleKeePassXCWindow", () => {
+  it("sends POST and returns the window state", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ state: "shown" }));
+
+    const result = await api.toggleKeePassXCWindow("1");
+
+    expect(result).toEqual({ state: "shown" });
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/profiles/1/keepassxc/toggle-window",
+      {
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      },
+    );
+  });
+});
+
 // ── setClipboard ────────────────────────────────────────────────────────────
 
 describe("api.setClipboard", () => {

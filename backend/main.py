@@ -25,9 +25,15 @@ import starlette.requests
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from . import database as db
-from .browser_manager import BrowserManager
+from .browser_manager import (
+    BrowserLaunchError,
+    BrowserManager,
+    KeePassXCUnavailableError,
+    KeePassXCWindowError,
+)
 from .models import (
     ClipboardRequest,
+    KeePassXCWindowResponse,
     LaunchResponse,
     LoginRequest,
     ProfileCreate,
@@ -330,6 +336,7 @@ def _filter_rfb_client_messages(data: bytes) -> bytes:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    browser_mgr.load_keepassxc_password()
     db.init_db()
     await browser_mgr.cleanup_stale()
     browser_mgr._auto_launch_task = asyncio.create_task(browser_mgr.auto_launch_all())
@@ -490,6 +497,9 @@ async def launch_profile(profile_id: str):
         running = await browser_mgr.launch(profile)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    except BrowserLaunchError as exc:
+        logger.error("Failed to launch profile %s: %s", profile_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
         logger.error("Failed to launch profile %s: %s", profile_id, exc)
         raise HTTPException(status_code=500, detail="Failed to launch browser")
@@ -518,6 +528,27 @@ async def get_profile_status(profile_id: str):
         raise HTTPException(status_code=404, detail="Profile not found")
     status = browser_mgr.get_status(profile_id)
     return ProfileStatusResponse(**status)
+
+
+@app.post(
+    "/api/profiles/{profile_id}/keepassxc/toggle-window",
+    response_model=KeePassXCWindowResponse,
+)
+async def toggle_keepassxc_window(profile_id: str):
+    if not db.get_profile(profile_id):
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    try:
+        state = await browser_mgr.toggle_keepassxc_window(profile_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Profile is not running")
+    except KeePassXCUnavailableError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except KeePassXCWindowError as exc:
+        logger.error("Failed to toggle KeePassXC window for %s: %s", profile_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return KeePassXCWindowResponse(state=state)
 
 
 # ── System Status ─────────────────────────────────────────────────────────────

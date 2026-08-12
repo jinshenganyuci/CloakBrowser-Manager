@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { ClipboardCopy, Code2, Download, Maximize2, Minimize2, Upload } from "lucide-react";
+import { ClipboardCopy, Code2, Download, KeyRound, Maximize2, Minimize2, Upload } from "lucide-react";
 import { api } from "../lib/api";
 
 interface ProfileViewerProps {
   profileId: string;
   cdpUrl: string | null;
   clipboardSync: boolean;
+  keepassxcEnabled: boolean;
   onDisconnect: () => void;
 }
 
 // X11 keysym for V key (Ctrl is already held in VNC by the time we intercept)
 const XK_v = 0x0076;
 type ClipboardActionState = "idle" | "busy" | "success" | "error";
+type KeePassXCWindowState = "unknown" | "shown" | "minimized";
 
 function isClipboardPermissionError(err: unknown) {
   const name = err instanceof DOMException ? err.name : "";
@@ -23,7 +25,13 @@ function isClipboardPermissionError(err: unknown) {
   );
 }
 
-export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboardSync, onDisconnect }: ProfileViewerProps) {
+export function ProfileViewer({
+  profileId,
+  cdpUrl,
+  clipboardSync: initialClipboardSync,
+  keepassxcEnabled,
+  onDisconnect,
+}: ProfileViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
   const [connected, setConnected] = useState(false);
@@ -33,6 +41,8 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
   const [cdpCopied, setCdpCopied] = useState(false);
   const [setClipboardState, setSetClipboardState] = useState<ClipboardActionState>("idle");
   const [readClipboardState, setReadClipboardState] = useState<ClipboardActionState>("idle");
+  const [keepassxcActionState, setKeepassxcActionState] = useState<ClipboardActionState>("idle");
+  const [keepassxcWindowState, setKeepassxcWindowState] = useState<KeePassXCWindowState>("unknown");
 
   useEffect(() => {
     let rfb: any = null;
@@ -222,7 +232,7 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
     }
   };
 
-  const settleClipboardState = (
+  const settleActionState = (
     setter: (state: ClipboardActionState) => void,
     state: ClipboardActionState,
   ) => {
@@ -232,7 +242,7 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
     }
   };
 
-  const clipboardActionClass = (state: ClipboardActionState) => {
+  const actionClass = (state: ClipboardActionState) => {
     const tone = state === "success"
       ? "text-emerald-400"
       : state === "error"
@@ -242,7 +252,7 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
   };
 
   const handleSetClipboard = async () => {
-    settleClipboardState(setSetClipboardState, "busy");
+    settleActionState(setSetClipboardState, "busy");
     try {
       let text = "";
       try {
@@ -253,13 +263,13 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
       } catch (err) {
         if (isClipboardPermissionError(err)) {
           console.debug("[clipboard] manual set cancelled or denied:", err);
-          settleClipboardState(setSetClipboardState, "idle");
+          settleActionState(setSetClipboardState, "idle");
           return;
         }
         console.warn("[clipboard] manual set readText unavailable:", err);
         const fallback = window.prompt("Paste text to send to CloakBrowser clipboard", "");
         if (fallback === null) {
-          settleClipboardState(setSetClipboardState, "idle");
+          settleActionState(setSetClipboardState, "idle");
           return;
         }
         text = fallback;
@@ -271,15 +281,15 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
       } catch (err) {
         console.warn("[clipboard] noVNC clipboardPasteFrom failed:", err);
       }
-      settleClipboardState(setSetClipboardState, "success");
+      settleActionState(setSetClipboardState, "success");
     } catch (err) {
       console.warn("[clipboard] manual set failed:", err);
-      settleClipboardState(setSetClipboardState, "error");
+      settleActionState(setSetClipboardState, "error");
     }
   };
 
   const handleReadClipboard = async () => {
-    settleClipboardState(setReadClipboardState, "busy");
+    settleActionState(setReadClipboardState, "busy");
     try {
       const { text } = await api.getClipboard(profileId);
       try {
@@ -288,10 +298,22 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
         console.warn("[clipboard] manual read writeText failed:", err);
         window.prompt("Copy CloakBrowser clipboard text", text);
       }
-      settleClipboardState(setReadClipboardState, "success");
+      settleActionState(setReadClipboardState, "success");
     } catch (err) {
       console.warn("[clipboard] manual read failed:", err);
-      settleClipboardState(setReadClipboardState, "error");
+      settleActionState(setReadClipboardState, "error");
+    }
+  };
+
+  const handleToggleKeePassXC = async () => {
+    settleActionState(setKeepassxcActionState, "busy");
+    try {
+      const { state } = await api.toggleKeePassXCWindow(profileId);
+      setKeepassxcWindowState(state);
+      settleActionState(setKeepassxcActionState, "success");
+    } catch (err) {
+      console.warn("[keepassxc] window toggle failed:", err);
+      settleActionState(setKeepassxcActionState, "error");
     }
   };
 
@@ -337,9 +359,26 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
           </span>
         </div>
         <div className="flex items-center gap-1">
+          {keepassxcEnabled && (
+            <button
+              onClick={handleToggleKeePassXC}
+              className={actionClass(keepassxcActionState)}
+              title={
+                keepassxcActionState === "error"
+                  ? "Failed to toggle KeePassXC window"
+                  : keepassxcWindowState === "shown"
+                    ? "Minimize KeePassXC and maximize Chromium"
+                    : "Show and maximize KeePassXC"
+              }
+              aria-label="Toggle KeePassXC window"
+              disabled={!connected || keepassxcActionState === "busy"}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             onClick={handleSetClipboard}
-            className={clipboardActionClass(setClipboardState)}
+            className={actionClass(setClipboardState)}
             title="Set Clipboard (frontend → CloakBrowser)"
             disabled={!connected || setClipboardState === "busy"}
           >
@@ -347,7 +386,7 @@ export function ProfileViewer({ profileId, cdpUrl, clipboardSync: initialClipboa
           </button>
           <button
             onClick={handleReadClipboard}
-            className={clipboardActionClass(readClipboardState)}
+            className={actionClass(readClipboardState)}
             title="Read Clipboard (CloakBrowser → frontend)"
             disabled={!connected || readClipboardState === "busy"}
           >

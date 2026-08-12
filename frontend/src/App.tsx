@@ -8,6 +8,7 @@ import { ProfileViewer } from "./components/ProfileViewer";
 import { LaunchButton } from "./components/LaunchButton";
 import { StatusIndicator } from "./components/StatusIndicator";
 import { LoginPage } from "./components/LoginPage";
+import { hasKeepassxcExtension } from "./lib/keepassxc";
 
 type AuthState = "checking" | "required" | "ok" | "error";
 type View = "empty" | "create" | "edit" | "view";
@@ -248,6 +249,7 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
               profileId={selected.id}
               cdpUrl={selected.cdp_url}
               clipboardSync={selected.clipboard_sync}
+              keepassxcEnabled={hasKeepassxcExtension(selected.launch_args)}
               onDisconnect={handleVncDisconnect}
             />
           )}

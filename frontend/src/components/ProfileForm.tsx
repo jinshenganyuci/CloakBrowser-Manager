@@ -1,6 +1,12 @@
 import { Save, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Profile, ProfileCreateData } from "../lib/api";
+import {
+  KEEPASSXC_EXTENSION_ALLOW_ARG,
+  KEEPASSXC_EXTENSION_ARG,
+} from "../lib/keepassxc";
+
+export { KEEPASSXC_EXTENSION_ALLOW_ARG, KEEPASSXC_EXTENSION_ARG } from "../lib/keepassxc";
 
 interface ProfileFormProps {
   profile: Profile | null; // null = create mode
@@ -63,7 +69,7 @@ const DEFAULT_FORM: ProfileCreateData = {
   geoip: false,
   clipboard_sync: false,
   auto_launch: false,
-  launch_args: [],
+  launch_args: [KEEPASSXC_EXTENSION_ALLOW_ARG, KEEPASSXC_EXTENSION_ARG],
   tags: [],
 };
 

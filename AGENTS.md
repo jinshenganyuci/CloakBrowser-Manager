@@ -1,40 +1,26 @@
 # Agent Instructions
 
-This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
+## Quality Gates
 
-## Quick Reference
+Before completing work that changes code, run the relevant checks:
 
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --status in_progress  # Claim work
-bd close <id>         # Complete work
-bd sync               # Sync with git
+.venv/bin/python -m pytest backend/tests -q
+cd frontend && npm test -- --run --maxWorkers=1
+cd frontend && npm run build
+bash -n entrypoint.sh
+docker compose config
+git diff --check
 ```
 
-## Landing the Plane (Session Completion)
+If a check cannot run in the current environment, report the exact blocker.
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+## Release Completion
 
-**MANDATORY WORKFLOW:**
+When a task explicitly includes a release or push:
 
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-
+1. Run the quality gates.
+2. Confirm the intended commit and version tag.
+3. Push the commit and tag to the configured remote.
+4. Build and push the requested release image.
+5. Verify the remote Git refs and Docker image digest.

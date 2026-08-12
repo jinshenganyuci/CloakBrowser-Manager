@@ -9,7 +9,12 @@ import pytest
 from starlette.testclient import TestClient
 
 from backend import main
-from backend.browser_manager import RunningProfile
+from backend.browser_manager import (
+    BrowserLaunchError,
+    KeePassXCUnavailableError,
+    KeePassXCWindowError,
+    RunningProfile,
+)
 
 
 # ── Profile CRUD ─────────────────────────────────────────────────────────────
@@ -169,9 +174,71 @@ def test_launch_failure_500(app_client: TestClient):
     assert resp.json()["detail"] == "Failed to launch browser"
 
 
+def test_keepassxc_launch_failure_returns_actionable_message(app_client: TestClient):
+    create = app_client.post("/api/profiles", json={"name": "KeePassFailure"})
+    pid = create.json()["id"]
+    main.browser_mgr.launch = AsyncMock(
+        side_effect=BrowserLaunchError("Failed to unlock the KeePassXC database")
+    )
+
+    resp = app_client.post(f"/api/profiles/{pid}/launch")
+
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Failed to unlock the KeePassXC database"
+
+
 def test_stop_not_running(app_client: TestClient):
     resp = app_client.post("/api/profiles/nonexistent/stop")
     assert resp.status_code == 404
+
+
+def test_toggle_keepassxc_window_success(app_client: TestClient):
+    create = app_client.post("/api/profiles", json={"name": "KeePassWindow"})
+    pid = create.json()["id"]
+    main.browser_mgr.toggle_keepassxc_window = AsyncMock(return_value="shown")
+
+    resp = app_client.post(f"/api/profiles/{pid}/keepassxc/toggle-window")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"state": "shown"}
+    main.browser_mgr.toggle_keepassxc_window.assert_awaited_once_with(pid)
+
+
+def test_toggle_keepassxc_window_not_running(app_client: TestClient):
+    create = app_client.post("/api/profiles", json={"name": "KeePassStopped"})
+    pid = create.json()["id"]
+    main.browser_mgr.toggle_keepassxc_window = AsyncMock(side_effect=KeyError(pid))
+
+    resp = app_client.post(f"/api/profiles/{pid}/keepassxc/toggle-window")
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Profile is not running"
+
+
+def test_toggle_keepassxc_window_not_enabled(app_client: TestClient):
+    create = app_client.post("/api/profiles", json={"name": "KeePassDisabled"})
+    pid = create.json()["id"]
+    main.browser_mgr.toggle_keepassxc_window = AsyncMock(
+        side_effect=KeePassXCUnavailableError("KeePassXC is not enabled")
+    )
+
+    resp = app_client.post(f"/api/profiles/{pid}/keepassxc/toggle-window")
+
+    assert resp.status_code == 409
+    assert resp.json()["detail"] == "KeePassXC is not enabled"
+
+
+def test_toggle_keepassxc_window_failure(app_client: TestClient):
+    create = app_client.post("/api/profiles", json={"name": "KeePassBroken"})
+    pid = create.json()["id"]
+    main.browser_mgr.toggle_keepassxc_window = AsyncMock(
+        side_effect=KeePassXCWindowError("Could not find the KeePassXC window")
+    )
+
+    resp = app_client.post(f"/api/profiles/{pid}/keepassxc/toggle-window")
+
+    assert resp.status_code == 500
+    assert resp.json()["detail"] == "Could not find the KeePassXC window"
 
 
 # ── System Status ────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 services:
   manager:
+    init: true
     build: .
     ports:
       - "127.0.0.1:8080:8080"
@@ -7,3 +8,4 @@ services:
       - ~/.cloakbrowser-manager:/data
     environment:
       - AUTH_TOKEN=${AUTH_TOKEN:-}
+      - KEEPASSXC_DATABASE_PASSWORD=${KEEPASSXC_DATABASE_PASSWORD:-change-me-keepassxc}

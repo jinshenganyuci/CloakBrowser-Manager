@@ -9,6 +9,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def keepassxc_password(monkeypatch: pytest.MonkeyPatch):
+    """Provide the required manager secret without exposing it to child tests."""
+    monkeypatch.setenv("KEEPASSXC_DATABASE_PASSWORD", "test-keepassxc-password")
+
+
 # ---------------------------------------------------------------------------
 # Mock cloakbrowser BEFORE any backend module is imported.
 # browser_manager.py does `from cloakbrowser import launch_persistent_context_async`
