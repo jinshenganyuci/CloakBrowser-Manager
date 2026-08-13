@@ -125,6 +125,11 @@ input. Changing the environment value does not re-encrypt existing databases;
 profiles created with the old value will fail to start until the matching
 password is restored or their database is re-encrypted manually.
 
+KeePassXC automatic database locking is disabled for these managed instances,
+including idle, minimize, screen-lock, and user-switch triggers. This keeps the
+browser integration available for the lifetime of the profile; manually
+locking the database from KeePassXC remains possible.
+
 For profiles using KeePassXC, the browser viewer toolbar includes a key button.
 It brings KeePassXC to the front and fills the VNC display; clicking it again
 while KeePassXC has focus hides all of its windows, then restores, fills, and

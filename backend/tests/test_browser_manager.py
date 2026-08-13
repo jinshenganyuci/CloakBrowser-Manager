@@ -268,7 +268,11 @@ def test_set_ini_root_value_updates_only_root_key():
 def test_ensure_keepassxc_config_enables_browser_and_preserves_settings(tmp_path: Path):
     paths = _test_keepassxc_paths(tmp_path)
     paths.data_dir.mkdir()
-    paths.config.write_text("Theme=dark\n\n[Browser]\nShowNotification=false\n")
+    paths.config.write_text(
+        "Theme=dark\n\n"
+        "[Browser]\nShowNotification=false\n\n"
+        "[Security]\nLockDatabaseIdle=true\nLockDatabaseMinimize=true\n"
+    )
 
     _ensure_keepassxc_config(paths)
 
@@ -279,6 +283,13 @@ def test_ensure_keepassxc_config_enables_browser_and_preserves_settings(tmp_path
     assert "Enabled=true" in config
     assert "UpdateBinaryPath=false" in config
     assert "ShowNotification=false" in config
+    assert "[Security]" in config
+    assert "LockDatabaseIdle=false" in config
+    assert "LockDatabaseMinimize=false" in config
+    assert "LockDatabaseScreenLock=false" in config
+    assert "LockDatabaseOnUserSwitch=false" in config
+    assert "LockDatabaseIdle=true" not in config
+    assert "LockDatabaseMinimize=true" not in config
     assert paths.local_config.exists()
     assert paths.config.stat().st_mode & 0o777 == 0o600
 

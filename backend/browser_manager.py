@@ -177,7 +177,7 @@ def _set_ini_root_value(lines: list[str], key: str, value: str) -> None:
 
 
 def _ensure_keepassxc_config(paths: KeePassXCPaths) -> None:
-    """Persist the minimum settings required for isolated browser integration."""
+    """Persist settings required for unattended isolated browser integration."""
     paths.data_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     paths.data_dir.chmod(0o700)
 
@@ -189,6 +189,13 @@ def _ensure_keepassxc_config(paths: KeePassXCPaths) -> None:
     _set_ini_root_value(lines, "SingleInstance", "false")
     _set_ini_value(lines, "Browser", "Enabled", "true")
     _set_ini_value(lines, "Browser", "UpdateBinaryPath", "false")
+    for key in (
+        "LockDatabaseIdle",
+        "LockDatabaseMinimize",
+        "LockDatabaseScreenLock",
+        "LockDatabaseOnUserSwitch",
+    ):
+        _set_ini_value(lines, "Security", key, "false")
     paths.config.write_text("\n".join(lines) + "\n")
     paths.config.chmod(0o600)
 
