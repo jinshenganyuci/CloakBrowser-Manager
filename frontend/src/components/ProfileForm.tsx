@@ -8,6 +8,9 @@ import {
 
 export { KEEPASSXC_EXTENSION_ALLOW_ARG, KEEPASSXC_EXTENSION_ARG } from "../lib/keepassxc";
 
+export const DEFAULT_FINGERPRINT_STORAGE_QUOTA_ARG =
+  "--fingerprint-storage-quota=10000";
+
 interface ProfileFormProps {
   profile: Profile | null; // null = create mode
   onSave: (data: ProfileCreateData) => Promise<void>;
@@ -61,15 +64,19 @@ const GPU_PRESETS: Record<string, { vendor: string; renderer: string }> = {
 const DEFAULT_FORM: ProfileCreateData = {
   name: "",
   platform: "windows",
-  screen_width: 1920,
-  screen_height: 1080,
-  humanize: false,
-  human_preset: "default",
+  screen_width: 1280,
+  screen_height: 720,
+  humanize: true,
+  human_preset: "careful",
   headless: false,
   geoip: false,
   clipboard_sync: false,
   auto_launch: false,
-  launch_args: [KEEPASSXC_EXTENSION_ALLOW_ARG, KEEPASSXC_EXTENSION_ARG],
+  launch_args: [
+    KEEPASSXC_EXTENSION_ALLOW_ARG,
+    KEEPASSXC_EXTENSION_ARG,
+    DEFAULT_FINGERPRINT_STORAGE_QUOTA_ARG,
+  ],
   tags: [],
 };
 
