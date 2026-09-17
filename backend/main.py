@@ -591,12 +591,12 @@ async def set_clipboard(profile_id: str, body: ClipboardRequest):
 
     env = {**os.environ, "DISPLAY": f":{running.display}"}
     proc = await asyncio.create_subprocess_exec(
-        "xclip", "-selection", "clipboard",
+        "xclip", "-selection", "clipboard", "-target", "UTF8_STRING",
         stdin=asyncio.subprocess.PIPE,
         env=env,
     )
     # xclip reads stdin then stays alive to serve paste requests.
-    proc.stdin.write(body.text.encode())  # type: ignore[union-attr]
+    proc.stdin.write(body.text.encode("utf-8"))  # type: ignore[union-attr]
     await proc.stdin.drain()  # type: ignore[union-attr]
     proc.stdin.close()  # type: ignore[union-attr]
 

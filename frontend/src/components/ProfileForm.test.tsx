@@ -33,24 +33,26 @@ describe("ProfileForm launch arguments", () => {
     );
 
     const humanize = screen.getByLabelText(
-      "Human-like mouse, keyboard, and scroll behavior",
+      "模拟真人鼠标、键盘和滚动行为",
     ) as HTMLInputElement;
-    const humanPreset = screen.getByText("Human Preset")
+    const humanPreset = screen.getByText("模拟行为预设")
       .parentElement?.querySelector("select") as HTMLSelectElement;
-    const screenResolution = screen.getByText("Screen Resolution")
+    const screenResolution = screen.getByText("屏幕分辨率")
       .parentElement?.querySelector("select") as HTMLSelectElement;
 
     expect(humanize.checked).toBe(true);
     expect(humanPreset.value).toBe("careful");
     expect(screenResolution.value).toBe("1280 × 720 (720p)");
 
-    fireEvent.change(container.querySelector('input[placeholder="e.g. Amazon Seller #1"]')!, {
+    fireEvent.change(container.querySelector('input[placeholder="例如：中文工作账号"]')!, {
       target: { value: "Default profile" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+    fireEvent.click(screen.getByRole("button", { name: "创建" }));
 
     await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      locale: "zh-CN",
+      timezone: "Asia/Shanghai",
       screen_width: 1280,
       screen_height: 720,
       humanize: true,
@@ -74,5 +76,27 @@ describe("ProfileForm launch arguments", () => {
     fireEvent.click(launchArg.querySelector("button")!);
 
     expect(screen.queryByText(KEEPASSXC_EXTENSION_ARG)).toBeNull();
+  });
+});
+
+describe("Chinese IME in profile fields", () => {
+  it("waits for composition to finish before adding a tag", () => {
+    render(<ProfileForm profile={null} onSave={vi.fn()} onCancel={vi.fn()} />);
+    const input = screen.getByLabelText("添加标签");
+    fireEvent.change(input, { target: { value: "中文标签" } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true, keyCode: 229 });
+    expect(screen.queryByLabelText("移除标签：中文标签")).toBeNull();
+    fireEvent.keyDown(input, { key: "Enter", isComposing: false });
+    expect(screen.getByLabelText("移除标签：中文标签")).not.toBeNull();
+  });
+
+  it("does not add a partial launch argument when confirming IME candidates", () => {
+    render(<ProfileForm profile={null} onSave={vi.fn()} onCancel={vi.fn()} />);
+    const input = screen.getByLabelText("添加启动参数");
+    fireEvent.change(input, { target: { value: "--test=中文" } });
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+    expect(screen.queryByLabelText("移除启动参数：--test=中文")).toBeNull();
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(screen.getByLabelText("移除启动参数：--test=中文")).not.toBeNull();
   });
 });

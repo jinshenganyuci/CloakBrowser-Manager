@@ -124,6 +124,6 @@ describe("useProfiles", () => {
 
     const { result } = renderHook(() => useProfiles());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.error).toBe("Network error");
+    expect(result.current.error).toBe("网络连接失败，请检查网络和服务器状态");
   });
 });

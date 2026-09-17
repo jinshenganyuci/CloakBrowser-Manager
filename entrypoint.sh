@@ -2,8 +2,8 @@
 set -e
 
 if [ -z "${KEEPASSXC_DATABASE_PASSWORD:-}" ]; then
-    echo "ERROR: KEEPASSXC_DATABASE_PASSWORD must be set to a non-empty value." >&2
-    echo "Set it in docker-compose.yml or pass -e KEEPASSXC_DATABASE_PASSWORD=... to docker run." >&2
+    echo "错误：必须设置非空的 KEEPASSXC_DATABASE_PASSWORD 数据库密码。" >&2
+    echo "请通过环境变量或 docker run 的 -e 参数设置。" >&2
     exit 1
 fi
 
@@ -32,6 +32,6 @@ find /tmp/cbm -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
 # Start FastAPI (serves built React + API)
 cd /app
 echo ""
-echo "  CloakBrowser Manager running at http://localhost:8080"
+echo "  CloakBrowser 管理器已启动：http://localhost:8080"
 echo ""
 exec uvicorn backend.main:app --host 0.0.0.0 --port 8080 --log-level warning

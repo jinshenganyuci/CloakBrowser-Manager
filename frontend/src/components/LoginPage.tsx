@@ -1,3 +1,4 @@
+import { errorMessage } from "../lib/errors";
 import { useState, type FormEvent } from "react";
 import { Lock } from "lucide-react";
 import { api } from "../lib/api";
@@ -19,7 +20,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
       await api.login(token);
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(errorMessage(err, "登录失败"));
     } finally {
       setLoading(false);
     }
@@ -33,15 +34,17 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             <Lock className="h-5 w-5 text-accent" />
           </div>
           <h1 className="text-lg font-semibold text-gray-100">
-            CloakBrowser Manager
+            CloakBrowser 管理器
           </h1>
-          <p className="text-xs text-gray-500 mt-1">Enter your access token</p>
+          <p className="text-xs text-gray-500 mt-1">请输入访问令牌</p>
         </div>
         <form onSubmit={handleSubmit}>
           <input
             type="password"
             className="input mb-3"
-            placeholder="Access token"
+            placeholder="访问令牌"
+            aria-label="访问令牌"
+            autoComplete="current-password"
             value={token}
             onChange={(e) => setToken(e.target.value)}
             autoFocus
@@ -52,7 +55,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
             disabled={loading || !token}
             className="btn-primary w-full disabled:opacity-50"
           >
-            {loading ? "Authenticating..." : "Unlock"}
+            {loading ? "正在验证…" : "登录"}
           </button>
         </form>
       </div>

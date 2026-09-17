@@ -23,3 +23,9 @@ deploy.sh
 CLAUDE.md
 publish-docker.sh
 debug
+
+# Local secrets and generated files
+.env
+.env.*
+!.env.example
+*.tsbuildinfo

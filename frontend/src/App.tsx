@@ -40,7 +40,7 @@ export default function App() {
   if (authState === "checking") {
     return (
       <div className="h-screen flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Loading...</div>
+        <div className="text-gray-500 text-sm">正在加载…</div>
       </div>
     );
   }
@@ -49,7 +49,7 @@ export default function App() {
     return (
       <div className="h-screen flex items-center justify-center bg-surface-0">
         <div className="text-center">
-          <p className="text-red-400 text-sm mb-2">Unable to reach the server</p>
+          <p className="text-red-400 text-sm mb-2">无法连接服务器</p>
           <button
             onClick={() => {
               setAuthState("checking");
@@ -62,7 +62,7 @@ export default function App() {
             }}
             className="text-xs text-gray-400 hover:text-gray-200 underline"
           >
-            Retry
+            重试
           </button>
         </div>
       </div>
@@ -93,12 +93,13 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
   const { profiles, loading, error, create, update, remove, launch, stop } = useProfiles();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [view, setView] = useState<View>("empty");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
 
   const selected = profiles.find((p) => p.id === selectedId) ?? null;
 
   const handleSelect = useCallback((id: string) => {
     setSelectedId(id);
+    if (window.innerWidth < 768) setSidebarOpen(false);
     const profile = profiles.find((p) => p.id === id);
     setView(profile?.status === "running" ? "view" : "edit");
   }, [profiles]);
@@ -106,6 +107,7 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
   const handleNew = useCallback(() => {
     setSelectedId(null);
     setView("create");
+    if (window.innerWidth < 768) setSidebarOpen(false);
   }, []);
 
   const handleCreate = useCallback(async (data: ProfileCreateData) => {
@@ -147,7 +149,7 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Loading...</div>
+        <div className="text-gray-500 text-sm">正在加载…</div>
       </div>
     );
   }
@@ -156,37 +158,40 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
     <div className="h-screen flex">
       {/* Sidebar */}
       {sidebarOpen && (
-        <div className="w-64 border-r border-border bg-surface-1 flex-shrink-0">
-          <ProfileList
-            profiles={profiles}
-            selectedId={selectedId}
-            onSelect={handleSelect}
-            onNew={handleNew}
-          />
-        </div>
+        <>
+          <button className="fixed inset-0 bg-black/50 z-10 md:hidden" aria-label="关闭侧栏" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-20 md:static w-64 border-r border-border bg-surface-1 flex-shrink-0">
+            <ProfileList
+              profiles={profiles}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              onNew={handleNew}
+            />
+          </div>
+        </>
       )}
 
       {/* Main panel */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-surface-1">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-gray-500 hover:text-gray-300 p-1"
-              title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+              title={sidebarOpen ? "收起侧栏" : "展开侧栏"}
             >
               {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
             </button>
             {selected && (
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <StatusIndicator status={selected.status} size="md" />
-                <span className="text-sm font-medium">{selected.name}</span>
+                <span className="text-sm font-medium truncate" title={selected.name}>{selected.name}</span>
                 <span className="text-xs text-gray-500 capitalize">{selected.platform}</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-shrink-0 items-center gap-2">
             {selected && (
               <LaunchButton
                 status={selected.status}
@@ -198,7 +203,7 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
               <button
                 onClick={onLogout}
                 className="text-gray-500 hover:text-gray-300 p-1"
-                title="Log out"
+                title="退出登录"
               >
                 <Lock className="h-3.5 w-3.5" />
               </button>
@@ -218,7 +223,8 @@ function AppContent({ authRequired, onLogout }: AppContentProps) {
           {view === "empty" && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <p className="text-gray-500 text-sm">Select a profile or create a new one</p>
+                <p className="text-gray-500 text-sm">选择一个浏览器配置，或新建配置开始使用</p>
+                <button onClick={handleNew} className="btn-primary mt-4">新建配置</button>
               </div>
             </div>
           )}

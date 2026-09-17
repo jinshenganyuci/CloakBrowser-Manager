@@ -1,3 +1,5 @@
+import { apiErrorMessage } from "./errors";
+
 /**
  * API client for CloakBrowser Manager backend.
  */
@@ -81,6 +83,7 @@ class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public detail?: unknown,
   ) {
     super(message);
   }
@@ -96,17 +99,21 @@ async function request<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+  } catch {
+    throw new ApiError(0, "网络连接失败，请检查网络和服务器状态");
+  }
   if (!res.ok) {
     if (res.status === 401 && _onUnauthorized) {
       _onUnauthorized();
-      throw new ApiError(401, "Unauthorized");
     }
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, body.detail || res.statusText);
+    throw new ApiError(res.status, apiErrorMessage(res.status, body?.detail), body?.detail);
   }
   return res.json();
 }

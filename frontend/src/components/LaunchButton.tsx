@@ -1,3 +1,4 @@
+import { errorMessage } from "../lib/errors";
 import { Play, Square, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,7 +22,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
         await onLaunch();
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Action failed";
+      const msg = errorMessage(err, "操作失败");
       setError(msg);
       console.error("Action failed:", err);
     } finally {
@@ -33,7 +34,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
     return (
       <button disabled className="btn-secondary opacity-60 cursor-not-allowed flex items-center gap-1.5">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        <span>{status === "running" ? "Stopping..." : "Launching..."}</span>
+        <span>{status === "running" ? "正在停止…" : "正在启动…"}</span>
       </button>
     );
   }
@@ -42,7 +43,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
     return (
       <button onClick={handleClick} className="btn-danger flex items-center gap-1.5">
         <Square className="h-3.5 w-3.5" />
-        <span>Stop</span>
+        <span>停止</span>
       </button>
     );
   }
@@ -51,7 +52,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
     <div>
       <button onClick={handleClick} className="btn-primary flex items-center gap-1.5">
         <Play className="h-3.5 w-3.5" />
-        <span>Launch</span>
+        <span>启动</span>
       </button>
       {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
     </div>

@@ -1,3 +1,4 @@
+import { errorMessage } from "../lib/errors";
 import { useCallback, useEffect, useState } from "react";
 import { api, type Profile, type ProfileCreateData } from "../lib/api";
 
@@ -12,7 +13,7 @@ export function useProfiles() {
       setProfiles(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch profiles");
+      setError(errorMessage(err, "获取配置列表失败"));
     } finally {
       setLoading(false);
     }
@@ -32,7 +33,7 @@ export function useProfiles() {
         setProfiles((prev) => [profile, ...prev]);
         return profile;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to create profile");
+        setError(errorMessage(err, "创建配置失败"));
       }
     },
     [],
@@ -45,7 +46,7 @@ export function useProfiles() {
         setProfiles((prev) => prev.map((p) => (p.id === id ? profile : p)));
         return profile;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to update profile");
+        setError(errorMessage(err, "保存配置失败"));
       }
     },
     [],
@@ -57,7 +58,7 @@ export function useProfiles() {
         await api.deleteProfile(id);
         setProfiles((prev) => prev.filter((p) => p.id !== id));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete profile");
+        setError(errorMessage(err, "删除配置失败"));
       }
     },
     [],
@@ -70,7 +71,7 @@ export function useProfiles() {
         await refresh();
         return result;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to launch profile");
+        setError(errorMessage(err, "启动浏览器失败"));
       }
     },
     [refresh],
@@ -82,7 +83,7 @@ export function useProfiles() {
         await api.stopProfile(id);
         await refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to stop profile");
+        setError(errorMessage(err, "停止浏览器失败"));
       }
     },
     [refresh],

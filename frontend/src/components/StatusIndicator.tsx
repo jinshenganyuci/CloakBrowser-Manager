@@ -8,7 +8,7 @@ export function StatusIndicator({ status, size = "sm" }: StatusIndicatorProps) {
   const isRunning = status === "running";
 
   return (
-    <span className="relative inline-flex">
+    <span className="relative inline-flex" role="img" aria-label={isRunning ? "运行中" : "已停止"} title={isRunning ? "运行中" : "已停止"}>
       {isRunning && (
         <span
           className={`absolute inline-flex ${sizeClass} rounded-full bg-emerald-400 opacity-75 animate-ping`}

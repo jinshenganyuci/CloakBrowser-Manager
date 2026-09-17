@@ -1,255 +1,158 @@
-<p align="center">
-<img src="https://i.imgur.com/cqkp6fG.png" width="500" alt="CloakBrowser">
-</p>
+# CloakBrowser 管理器 · 中文版
 
-<h3 align="center">Browser Profile Manager for CloakBrowser</h3>
+基于 [CwithW/CloakBrowser-Manager](https://github.com/CwithW/CloakBrowser-Manager) 二次开发的简体中文浏览器配置管理器，保留原项目的配置隔离、指纹设置、代理、远程查看、自动启动、CDP 自动化和 KeePassXC 通行密钥功能。
 
-<p align="center">
-Create, manage, and launch isolated browser profiles with unique fingerprints.<br>
-Free, self-hosted alternative to Multilogin, GoLogin, and AdsPower.
-</p>
+[英文上游文档](README.en.md) · [更新记录](CHANGELOG.zh-CN.md) · [反馈问题](https://github.com/jinshenganyuci/CloakBrowser-Manager/issues)
 
-<p align="center">
-<a href="https://github.com/CloakHQ/CloakBrowser"><img src="https://img.shields.io/github/stars/cloakhq/cloakbrowser?label=CloakBrowser" alt="Stars"></a>
-<a href="https://hub.docker.com/r/cloakhq/cloakbrowser-manager"><img src="https://img.shields.io/docker/pulls/cloakhq/cloakbrowser-manager?label=docker&logo=docker&logoColor=white" alt="Docker Pulls"></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
-</p>
+![中文配置界面](docs/screenshots/chinese-profile.png)
 
----
+## 中文支持
 
-<p align="center">
-<img src="https://i.imgur.com/twdX81Q.png" width="800" alt="CloakBrowser Manager — Browser View">
-<br>
-<img src="https://i.imgur.com/XFYn1qY.png" width="800" alt="CloakBrowser Manager — Profile Settings">
-</p>
+- 管理界面、登录页、表单、操作状态、工具提示、删除确认、错误提示与输入校验均使用简体中文。
+- 配置名称、备注、标签支持简繁中文和 Emoji；备注支持多行，配置名称支持中文搜索，保存和编辑保留原文。
+- 新建配置默认使用 `zh-CN` 和 `Asia/Shanghai`，可选择 `zh-TW`、`zh-HK` 等语言，也可输入任意有效语言/时区或清空。已有配置不会被改成中文语言或中国时区。
+- Docker 内提供 Noto CJK 中文字体、Emoji 字体和 `zh_CN.UTF-8` 环境；KeePassXC 界面设置为简体中文，并补齐 Qt 标准按钮和对话框的中文语言包。
+- 查看器提供「中文 / 文本输入」面板：使用本机中文输入法完成输入，再发送到远程窗口；支持繁体、Emoji 和换行，不依赖本机剪贴板权限。
+- 标签和启动参数输入框识别输入法组合状态，确认候选词时不会提前添加。
+- API 路径、字段名、状态枚举和 Chromium 参数保持原协议，自动化脚本继续使用 `running`、`stopped` 等原始值。
 
-Each profile is an isolated CloakBrowser instance with its own fingerprint, proxy, cookies, and session data. Profiles persist across restarts. Everything runs in one Docker container.
+## 快速开始
+
+当前 Docker 构建面向 **Linux amd64 / x86_64**，需要 Docker Engine 与 Compose 插件。浏览器、KeePassXC 和依赖下载需要可用网络；每个运行中的配置通常需要数百 MB 内存。
 
 ```bash
-docker run --init -p 8080:8080 -v cloakprofiles:/data \
-  -e KEEPASSXC_DATABASE_PASSWORD=your-database-secret \
-  cloakhq/cloakbrowser-manager
-```
-
-Or build from source:
-
-```bash
-git clone https://github.com/CloakHQ/CloakBrowser-Manager.git
+git clone https://github.com/jinshenganyuci/CloakBrowser-Manager.git
 cd CloakBrowser-Manager
-docker compose up --build
+cp .env.example .env
+chmod 600 .env
+# 编辑 .env，设置自己的 KeePassXC 数据库密码；需要登录保护时同时设置 AUTH_TOKEN。
+docker compose up -d --build
 ```
 
-Open [http://localhost:8080](http://localhost:8080) in your browser. Create a profile. Click Launch. Done.
+在浏览器中打开 <http://localhost:8080>。点击「新建配置」，填写名称并创建，再点击「启动」。中文代码必须从本仓库构建；上游 `cloakhq/cloakbrowser-manager` 镜像不包含本分支的修改。
 
-> **Early alpha** — this project is under active development. Expect bugs. If you find one, please [open an issue](https://github.com/CloakHQ/CloakBrowser-Manager/issues).
-
-## Why Not Just Use a VPN?
-
-A VPN only changes your IP. Incognito only clears cookies. Chrome profiles share the same hardware fingerprint underneath. Platforms use 50+ signals to link your accounts — canvas, WebGL, audio, GPU, fonts, screen size, timezone.
-
-Each CloakBrowser profile generates a completely different device identity. To the website, each profile looks like a different computer.
-
-| Solution | What it changes | Accounts linked? |
-|----------|----------------|-----------------|
-| VPN | IP address only | Yes — same fingerprint |
-| Incognito | Clears cookies | Yes — same fingerprint |
-| Chrome profiles | Separate bookmarks/cookies | Yes — same hardware fingerprint |
-| **CloakBrowser** | **Everything — full device identity per profile** | **No** |
-
-## Features
-
-- **Profile management** — create, edit, delete browser profiles with unique fingerprints
-- **Per-profile settings** — fingerprint seed, proxy, timezone, locale, user agent, screen size, platform
-- **One-click launch/stop** — each profile runs as an isolated CloakBrowser instance
-- **Session persistence** — cookies, localStorage, and cache survive browser restarts
-- **Passkey support** — each profile can run an isolated KeePassXC database through the bundled KeePassXC-Browser extension
-- **In-browser viewing** — interact with launched browsers via noVNC, directly in the web GUI
-- **Playwright/Puppeteer API** — connect to any running profile programmatically via CDP, while still watching it live in the browser
-- **Optional authentication** — protect the web UI and API with a single token, or run wide open locally
-- **Powered by CloakBrowser** — 32 source-level C++ patches, passes Cloudflare Turnstile, 0.9 reCAPTCHA v3 score
-
-## Stack
-
-- **Backend**: FastAPI (Python)
-- **Frontend**: React + Tailwind CSS
-- **Browser viewer**: noVNC (WebSocket-based VNC client)
-- **Database**: SQLite
-- **Browser engine**: [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) (stealth Chromium binary)
-
-## Development
-
-### Backend
+Compose 默认只监听 `127.0.0.1:8080`。在远程服务器上运行时，可以通过 SSH 转发访问：
 
 ```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8080
+ssh -L 8080:127.0.0.1:8080 your-server
 ```
 
-### Frontend
+配置和浏览器数据默认保存在宿主机 `~/.cloakbrowser-manager`，映射为容器 `/data`。需要改端口或数据目录时编辑 `docker-compose.yml`。
+
+## 配置说明
+
+| 设置 | 用途 |
+| --- | --- |
+| 配置名称、标签、备注 | 管理和区分浏览器环境，支持中文 |
+| 操作系统、指纹种子 | 设置模拟平台与指纹种子；留空种子会自动生成 |
+| 代理 | 支持 HTTP / SOCKS 代理，例如 `http://user:pass@host:port` |
+| 时区、浏览器语言 | 控制远程浏览器环境；管理器界面固定使用简体中文 |
+| GeoIP | 根据代理出口检测语言和时区；需要自动检测的字段应清空，手动值优先 |
+| 屏幕、显卡、逻辑处理器 | 设置对应指纹参数，显卡原始标识保留英文协议值 |
+| 模拟真人行为 | 默认启用谨慎模式；延续 CwithW 分支的设置 |
+| 剪贴板同步 | 在本机与远程浏览器之间同步文本；自动同步需要本机浏览器授权 |
+| 自动启动 | 容器启动后自动启动此配置 |
+| 启动参数 | 逐条填写 Chromium 参数，支持扩展等配置 |
+
+新建配置延续 CwithW 的 `1280 × 720` 分辨率、谨慎模式、KeePassXC 扩展和 `--fingerprint-storage-quota=10000` 默认值。通过 API 创建配置仍遵循原有 API 默认值；需要中文浏览器环境时显式传入 `locale` 与 `timezone`。
+
+### 远程输入中文
+
+1. 在远程浏览器中点击目标输入框或地址栏。
+2. 展开查看器上方的「中文 / 文本输入」。
+3. 使用本机输入法输入中文、粘贴文字或输入多行内容。
+4. 点击「发送文字」，确认文字已进入远程窗口。
+
+文字通过 UTF-8 剪贴板接口发送，再由远程窗口执行粘贴；网站或应用若禁止粘贴，需使用其允许的输入方式。此面板可在普通 HTTP 环境使用，也可在全屏查看器中使用。它不在容器中安装拼音输入法；中文组合输入发生在本机浏览器的文本框中。
+
+「发送剪贴板到远程浏览器」和「读取远程浏览器剪贴板」可手动传输文本。浏览器限制剪贴板权限时，可改用文本输入面板；自动同步通常要求 HTTPS 或 localhost 并授予权限。
+
+### KeePassXC 与通行密钥
+
+每个启用内置扩展的配置拥有独立的 KeePassXC 数据库，存放在 `/data/profiles/<配置 ID>/KeePassXC`。工具栏钥匙按钮用于切换 KeePassXC 与浏览器窗口。
+
+- `KEEPASSXC_DATABASE_PASSWORD` 必须非空，且不能含换行。Compose 中保留了上游的开发默认密码，实际使用请在 `.env` 中设置自己的密码。
+- 密码只在管理器启动时读取，并通过标准输入传给 KeePassXC；不会传给浏览器子进程。
+- 修改环境变量不会重新加密已有数据库。迁移或更新时须使用原密码，或先自行重新加密数据库。
+- 扩展的 `--load-extension=/opt/cloakbrowser/extensions/keepassxc-browser` 参数也是 KeePassXC 启动开关；删除该参数可关闭当前配置的集成。
+- 此分支保留 CwithW 的自动解锁和关闭自动锁定行为，可在 KeePassXC 中手动锁定。
+
+## 登录保护
+
+在 `.env` 中设置 `AUTH_TOKEN` 后重建或重新创建容器：
 
 ```bash
+docker compose up -d
+```
+
+管理界面会显示中文登录页。API 使用 `Authorization: Bearer <令牌>`，VNC WebSocket 使用登录 Cookie；`/api/status` 保留为免认证健康检查接口。通过公网访问时，应配置 HTTPS 反向代理。
+
+## 更新与数据保留
+
+```bash
+git pull --ff-only
+docker compose up -d --build
+```
+
+重建容器不会清除挂载目录中的配置、Cookie、会话和 KeePassXC 数据库。升级前可备份 `~/.cloakbrowser-manager`，保持数据库密码不变。删除单个配置会永久移除该配置的浏览器数据。
+
+## 自动化 API
+
+运行中的配置可以通过管理器代理的 CDP 地址连接 Playwright / Puppeteer。查看器工具栏的代码图标可复制地址。
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def main():
+    async with async_playwright() as pw:
+        browser = await pw.chromium.connect_over_cdp(
+            "http://localhost:8080/api/profiles/<配置 ID>/cdp",
+            # 启用登录保护时，通过环境变量读取令牌并传入 headers。
+        )
+        page = browser.contexts[0].pages[0]
+        await page.goto("https://example.com")
+
+asyncio.run(main())
+```
+
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET / POST | `/api/profiles` | 列出 / 创建配置 |
+| GET / PUT / DELETE | `/api/profiles/{id}` | 读取 / 修改 / 删除配置 |
+| POST | `/api/profiles/{id}/launch` | 启动浏览器 |
+| POST | `/api/profiles/{id}/stop` | 停止浏览器 |
+| GET / POST | `/api/profiles/{id}/clipboard` | 读取 / 写入文本剪贴板 |
+| POST | `/api/profiles/{id}/keepassxc/toggle-window` | 切换 KeePassXC 窗口 |
+| GET | `/api/status` | 系统健康状态 |
+
+## 开发与验证
+
+推荐使用 Docker 运行完整浏览器环境。仅进行前后端开发时：
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt pytest pytest-asyncio
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-### Docker
+后端还需要 KasmVNC、xclip、xdotool、浏览器运行依赖、可写的 `/data`，以及 KeePassXC 运行时和扩展；这些均在 Dockerfile 中配置。前端开发服务器默认代理 `/api` 到 `127.0.0.1:8080`。
 
 ```bash
-docker compose up --build
+.venv/bin/python -m pytest backend/tests -q
+(cd frontend && npm test -- --run --maxWorkers=1)
+(cd frontend && npm run build)
+bash -n entrypoint.sh
+docker compose config
+git diff --check
 ```
 
-The included Compose configuration uses `change-me-keepassxc` as a development
-default for `KEEPASSXC_DATABASE_PASSWORD`. Set a private value before production
-use:
+GitHub Actions 自动运行后端测试、前端测试、生产构建和配置检查。单元测试使用模拟浏览器；真实浏览器验收另见 [验收记录](docs/verification.zh-CN.md)。
 
-```bash
-export KEEPASSXC_DATABASE_PASSWORD='replace-with-a-strong-secret'
-docker compose up --build
-```
+## 来源与许可
 
-New profiles include both `--disable-extensions-except` and `--load-extension`
-arguments for the bundled KeePassXC-Browser extension. The first overrides
-CloakBrowser's extension-disable default; the second loads the unpacked
-extension and is also the KeePassXC lifecycle switch. Removing the
-`--load-extension=/opt/cloakbrowser/extensions/keepassxc-browser` argument
-prevents KeePassXC from starting for that profile. Each enabled profile stores
-its database and KeePassXC configuration under
-`/data/profiles/<profile-id>/KeePassXC`.
+本分支从 CwithW 的 `2d6ab81` 提交开始开发，原始管理器来自 [CloakHQ/CloakBrowser-Manager](https://github.com/CloakHQ/CloakBrowser-Manager)，浏览器由 [CloakBrowser](https://github.com/CloakHQ/CloakBrowser) 提供。
 
-The manager reads the database password once at startup, removes it from its
-child-process environment, and sends it to KeePassXC only through standard
-input. Changing the environment value does not re-encrypt existing databases;
-profiles created with the old value will fail to start until the matching
-password is restored or their database is re-encrypted manually.
-
-KeePassXC automatic database locking is disabled for these managed instances,
-including idle, minimize, screen-lock, and user-switch triggers. This keeps the
-browser integration available for the lifetime of the profile; manually
-locking the database from KeePassXC remains possible.
-
-For profiles using KeePassXC, the browser viewer toolbar includes a key button.
-It brings KeePassXC to the front and fills the VNC display; clicking it again
-while KeePassXC has focus hides all of its windows, then restores, fills, and
-focuses that profile's Chromium window. Profiles without the bundled extension
-load argument do not show this button.
-
-Non-headless Chromium windows are also restored, positioned at the display
-origin, filled to the configured VNC resolution, and focused after launch.
-
-The Compose service uses `init: true`, and direct `docker run` examples use
-`--init`, so PID 1 reaps orphaned Chromium, Crashpad, KeePassXC Browser Proxy,
-and clipboard helper processes. Recreate existing containers after upgrading;
-restarting a container created without an init process does not add one.
-
-The image uses KeePassXC 2.7.12 from its checksum-pinned official x86_64
-AppImage. Its bundled Qt runtime avoids the reproducible system-Qt crash that
-can occur when a distro build is unlocked with `--pw-stdin` as a background
-process. KeePassXC does not currently publish a Linux arm64 AppImage, so this
-Docker build targets amd64 rather than silently falling back to the affected
-distro runtime.
-
-## Requirements
-
-- Docker (20.10+)
-- ~2 GB disk (image + binary)
-- ~512 MB RAM per running profile
-
-## Updating
-
-Pull the latest image and restart:
-
-```bash
-docker pull cloakhq/cloakbrowser-manager
-docker stop <container-id>
-docker run --init -p 8080:8080 -v cloakprofiles:/data \
-  -e KEEPASSXC_DATABASE_PASSWORD=your-database-secret \
-  cloakhq/cloakbrowser-manager
-```
-
-Your profiles and session data are stored in the `cloakprofiles` volume and persist across updates.
-
-## Automation API
-
-Every running profile exposes a CDP (Chrome DevTools Protocol) endpoint. Connect Playwright or Puppeteer to automate a profile while watching it live in the browser.
-
-```python
-from playwright.async_api import async_playwright
-
-async with async_playwright() as pw:
-    browser = await pw.chromium.connect_over_cdp(
-        "http://localhost:8080/api/profiles/<profile-id>/cdp"
-    )
-    page = browser.contexts[0].pages[0]
-    await page.goto("https://example.com")
-```
-
-```javascript
-const { chromium } = require("playwright");
-
-const browser = await chromium.connectOverCDP(
-  "http://localhost:8080/api/profiles/<profile-id>/cdp"
-);
-const page = browser.contexts()[0].pages()[0];
-await page.goto("https://example.com");
-```
-
-The CDP URL is available in the toolbar (code icon) when a profile is running. The same browser session is accessible both visually through VNC and programmatically through the API.
-
-## Remote Access
-
-The container binds to localhost only. To access from a remote server:
-
-```bash
-ssh -L 8080:localhost:8080 your-server
-```
-
-Then open `http://localhost:8080`.
-
-## Authentication
-
-By default, there is no authentication (ideal for local use). To protect the web UI and API when hosting on a network, set the `AUTH_TOKEN` environment variable:
-
-```bash
-docker run --init -p 8080:8080 -v cloakprofiles:/data \
-  -e AUTH_TOKEN=your-secret-token \
-  -e KEEPASSXC_DATABASE_PASSWORD=your-database-secret \
-  cloakhq/cloakbrowser-manager
-```
-
-Or in `docker-compose.yml`:
-
-```yaml
-environment:
-  - AUTH_TOKEN=your-secret-token
-  - KEEPASSXC_DATABASE_PASSWORD=your-database-secret
-```
-
-When `AUTH_TOKEN` is set:
-
-- The web UI shows a login page. Enter the token to unlock.
-- API consumers pass the token via `Authorization: Bearer <token>` header.
-- VNC WebSocket connections are authenticated via the login cookie.
-- The `/api/status` endpoint remains unauthenticated (for Docker healthcheck).
-
-> **Note**: The auth token is transmitted in cleartext over HTTP. If you expose the Manager to the internet, put it behind a reverse proxy with HTTPS (Caddy, nginx, Traefik).
-
-## License
-
-- **This application** (GUI source code) — MIT. See [LICENSE](LICENSE).
-- **CloakBrowser binary** (compiled Chromium) — free to use, no redistribution. See [BINARY-LICENSE.md](BINARY-LICENSE.md).
-
-The GUI application requires the CloakBrowser Chromium binary to function. The binary is automatically downloaded on first launch and is governed by its own license terms. If you fork or redistribute this application, your users must comply with the [CloakBrowser Binary License](BINARY-LICENSE.md).
-
-## Contributing
-
-Contributions are welcome. Please [open an issue](https://github.com/CloakHQ/CloakBrowser-Manager/issues) first to discuss what you'd like to change.
-
-## Links
-
-- **CloakBrowser** — [github.com/CloakHQ/CloakBrowser](https://github.com/CloakHQ/CloakBrowser)
-- **Website** — [cloakbrowser.dev](https://cloakbrowser.dev)
-- **Bug reports** — [GitHub Issues](https://github.com/CloakHQ/CloakBrowser-Manager/issues)
-- **Contact** — cloakhq@pm.me
+管理器源代码使用 [MIT 许可证](LICENSE)。浏览器二进制使用独立的 [CloakBrowser Binary License](BINARY-LICENSE.md)；本仓库保留原始许可文件。Docker 构建由使用者从官方渠道下载浏览器，二进制的使用和分发须遵守其许可。

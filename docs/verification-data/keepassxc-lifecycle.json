@@ -1,0 +1,54 @@
+{
+  "C.UTF-8": [
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    },
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    },
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    },
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    }
+  ],
+  "zh_CN.UTF-8": [
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    },
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    },
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    },
+    {
+      "launch": 200,
+      "status": "running",
+      "toggle1": 200,
+      "toggle2": 200
+    }
+  ]
+}

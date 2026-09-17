@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ClipboardCopy, Code2, Download, KeyRound, Maximize2, Minimize2, Upload } from "lucide-react";
 import { api } from "../lib/api";
+import { errorMessage } from "../lib/errors";
+import { RemoteTextInput } from "./RemoteTextInput";
 
 interface ProfileViewerProps {
   profileId: string;
@@ -32,6 +34,7 @@ export function ProfileViewer({
   keepassxcEnabled,
   onDisconnect,
 }: ProfileViewerProps) {
+  const viewerRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
   const [connected, setConnected] = useState(false);
@@ -79,11 +82,12 @@ export function ProfileViewer({
         });
 
         rfb.addEventListener("securityfailure", (e: any) => {
-          setError(`Security failure: ${e.detail.reason}`);
+          console.warn("[vnc] security failure:", e.detail.reason);
+          setError("安全验证失败，请检查访问令牌和服务器连接配置");
         });
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to connect");
+          setError(errorMessage(err, "无法连接远程浏览器，请检查网络后重试"));
         }
       }
     }
@@ -130,7 +134,6 @@ export function ProfileViewer({
 
       try {
         const text = await navigator.clipboard.readText();
-        console.log("[clipboard] host clipboard text:", text?.substring(0, 50), "len:", text?.length);
         if (text) {
           console.log("[clipboard] calling setClipboard API...");
           await api.setClipboard(profileId, text);
@@ -166,7 +169,6 @@ export function ProfileViewer({
 
     const handleClipboard = (e: any) => {
       const text = e.detail?.text;
-      console.log("[clipboard] VNC→Host event fired, text:", text?.substring(0, 50), "len:", text?.length);
       if (text) {
         navigator.clipboard.writeText(text).then(() => {
           console.log("[clipboard] writeText success");
@@ -198,7 +200,6 @@ export function ProfileViewer({
         const { text } = await api.getClipboard(profileId);
         if (text && text !== lastText) {
           lastText = text;
-          console.log("[clipboard] poll: new VNC clipboard:", text.substring(0, 50), "len:", text.length);
           await navigator.clipboard.writeText(text).catch((err) =>
             console.warn("[clipboard] poll writeText failed:", err)
           );
@@ -221,15 +222,30 @@ export function ProfileViewer({
     };
   }, [profileId, clipboardSync, connected]);
 
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return;
-    if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen();
-      setFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setFullscreen(false);
+  const toggleFullscreen = async () => {
+    if (!viewerRef.current) return;
+    try {
+      if (!document.fullscreenElement) {
+        await viewerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn("[vnc] fullscreen unavailable:", err);
     }
+  };
+
+  const sendText = async (text: string) => {
+    const rfb = rfbRef.current;
+    if (!rfb || !connected) throw new Error("远程浏览器尚未连接");
+    await api.setClipboard(profileId, text);
+    // The request may outlive the connection. Never paste into a replacement session.
+    if (rfbRef.current !== rfb) throw new Error("连接已断开，请重新连接后发送");
+    rfb.focus();
+    rfb.sendKey(0xffe3, "ControlLeft", true);
+    rfb.sendKey(XK_v, "KeyV", true);
+    rfb.sendKey(XK_v, "KeyV", false);
+    rfb.sendKey(0xffe3, "ControlLeft", false);
   };
 
   const settleActionState = (
@@ -257,7 +273,7 @@ export function ProfileViewer({
       let text = "";
       try {
         if (!navigator.clipboard?.readText) {
-          throw new Error("Clipboard API is not available");
+          throw new Error("当前环境不支持剪贴板接口");
         }
         text = await navigator.clipboard.readText();
       } catch (err) {
@@ -267,7 +283,7 @@ export function ProfileViewer({
           return;
         }
         console.warn("[clipboard] manual set readText unavailable:", err);
-        const fallback = window.prompt("Paste text to send to CloakBrowser clipboard", "");
+        const fallback = window.prompt("粘贴要发送到远程浏览器剪贴板的文字", "");
         if (fallback === null) {
           settleActionState(setSetClipboardState, "idle");
           return;
@@ -296,7 +312,7 @@ export function ProfileViewer({
         await navigator.clipboard.writeText(text);
       } catch (err) {
         console.warn("[clipboard] manual read writeText failed:", err);
-        window.prompt("Copy CloakBrowser clipboard text", text);
+        window.prompt("复制远程浏览器的剪贴板文字", text);
       }
       settleActionState(setReadClipboardState, "success");
     } catch (err) {
@@ -341,7 +357,7 @@ export function ProfileViewer({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-red-400 text-sm mb-2">Connection failed</p>
+          <p className="text-red-400 text-sm mb-2">连接失败</p>
           <p className="text-gray-500 text-xs">{error}</p>
         </div>
       </div>
@@ -349,13 +365,13 @@ export function ProfileViewer({
   }
 
   return (
-    <div className="relative h-full flex flex-col">
+    <div ref={viewerRef} className="relative h-full flex flex-col bg-surface-0">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-surface-1 border-b border-border">
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400" : "bg-yellow-400 animate-pulse"}`} />
           <span className="text-xs text-gray-400">
-            {connected ? "Connected" : "Connecting..."}
+            {connected ? "已连接" : "正在连接…"}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -365,12 +381,12 @@ export function ProfileViewer({
               className={actionClass(keepassxcActionState)}
               title={
                 keepassxcActionState === "error"
-                  ? "Failed to toggle KeePassXC window"
+                  ? "切换 KeePassXC 窗口失败"
                   : keepassxcWindowState === "shown"
-                    ? "Minimize KeePassXC and maximize Chromium"
-                    : "Show and maximize KeePassXC"
+                    ? "最小化 KeePassXC 并显示浏览器"
+                    : "显示并最大化 KeePassXC"
               }
-              aria-label="Toggle KeePassXC window"
+              aria-label="切换 KeePassXC 窗口"
               disabled={!connected || keepassxcActionState === "busy"}
             >
               <KeyRound className="h-3.5 w-3.5" />
@@ -379,7 +395,7 @@ export function ProfileViewer({
           <button
             onClick={handleSetClipboard}
             className={actionClass(setClipboardState)}
-            title="Set Clipboard (frontend → CloakBrowser)"
+            title="发送剪贴板到远程浏览器"
             disabled={!connected || setClipboardState === "busy"}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -387,7 +403,7 @@ export function ProfileViewer({
           <button
             onClick={handleReadClipboard}
             className={actionClass(readClipboardState)}
-            title="Read Clipboard (CloakBrowser → frontend)"
+            title="读取远程浏览器剪贴板"
             disabled={!connected || readClipboardState === "busy"}
           >
             <Download className="h-3.5 w-3.5" />
@@ -402,7 +418,7 @@ export function ProfileViewer({
                 }).catch((err) => console.warn("[cdp] copy failed:", err));
               }}
               className={`p-1 ${cdpCopied ? "text-emerald-400" : "text-gray-500 hover:text-gray-300"}`}
-              title={cdpCopied ? "Copied!" : "Copy CDP endpoint URL"}
+              title={cdpCopied ? "已复制" : "复制 CDP 连接地址"}
             >
               <Code2 className="h-3.5 w-3.5" />
             </button>
@@ -410,7 +426,7 @@ export function ProfileViewer({
           <button
             onClick={() => { console.log("[clipboard] toggle:", !clipboardSync); setClipboardSync(!clipboardSync); }}
             className={`p-1 ${clipboardSync ? "text-accent" : "text-gray-500 hover:text-gray-300"}`}
-            title={clipboardSync ? "Disable clipboard sync" : "Enable clipboard sync"}
+            title={clipboardSync ? "关闭剪贴板同步" : "开启剪贴板同步"}
             disabled={!connected}
           >
             <ClipboardCopy className="h-3.5 w-3.5" />
@@ -418,12 +434,14 @@ export function ProfileViewer({
           <button
             onClick={toggleFullscreen}
             className="text-gray-500 hover:text-gray-300 p-1"
-            title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            title={fullscreen ? "退出全屏" : "全屏"}
           >
             {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
         </div>
       </div>
+
+      <RemoteTextInput connected={connected} onSend={sendText} />
 
       {/* VNC canvas container */}
       <div
