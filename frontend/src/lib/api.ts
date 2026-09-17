@@ -169,6 +169,11 @@ export const api = {
       body: JSON.stringify({ text }),
     }),
 
+  prepareClipboard: (id: string, text: string) =>
+    request<{ ok: boolean }>(`/api/profiles/${id}/clipboard/prepare`, {
+      method: "POST", body: JSON.stringify({ text }),
+    }),
+
   getClipboard: (id: string) =>
     request<{ text: string }>(`/api/profiles/${id}/clipboard`),
 };

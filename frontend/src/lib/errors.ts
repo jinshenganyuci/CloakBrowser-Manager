@@ -1,5 +1,6 @@
 /** Chinese messages for the API contract; protocol values remain unchanged. */
 const messages: Record<string, string> = {
+  "Clipboard update timed out": "剪贴板更新超时，未执行粘贴，请重试",
   "Invalid token": "访问令牌不正确，请重新输入",
   "Unauthorized": "登录已过期，请重新登录",
   "Profile not found": "配置不存在，可能已被删除",

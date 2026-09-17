@@ -492,15 +492,6 @@ export function ProfileForm({ profile, onSave, onDelete, onCancel }: ProfileForm
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
               <input
                 type="checkbox"
-                checked={form.clipboard_sync ?? false}
-                onChange={(e) => set("clipboard_sync", e.target.checked)}
-                className="rounded border-border bg-surface-2"
-              />
-              默认开启远程查看器的剪贴板同步
-            </label>
-            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
-              <input
-                type="checkbox"
                 checked={form.auto_launch ?? false}
                 onChange={(e) => set("auto_launch", e.target.checked)}
                 className="rounded border-border bg-surface-2"

@@ -1,5 +1,22 @@
 # 中文版验收记录
 
+## 0.1.0-zh.2：直接输入与双向剪贴板
+
+本地检查：后端 207 项、前端 48 项测试通过；TypeScript/Vite 构建、Shell/Compose 配置和 diff 检查通过。
+
+使用真实 CloakBrowser / KasmVNC，宿主 Chromium 通过 `remote-input.test` 映射到测试容器访问：`isSecureContext=false`、`navigator.clipboard` 不可用，没有剪贴板权限授权或 clipboard API 模拟。
+
+- Blink `Input.imeSetComposition` / `Input.insertText` 产生真实输入法事件，中文只提交一次，后续英文按键保持顺序。
+- 本机 Ctrl+V 将简繁中文、Emoji、换行完整送入远程文本框。
+- 远程 Ctrl+C / Ctrl+X 后，在本机原生文本框 Ctrl+V，内容完整一致；剪切同时清除远程选中内容。
+- 未经过前端快捷键处理的远程原生复制也能自动同步到本机。
+- 浏览器地址栏内的中文输入及复制回本机通过，未依赖网页 DOM 注入。
+- 单元测试覆盖输入法取消、粘贴事件、修饰键映射、异步输入顺序、断线丢弃待发送按键、后台同步不覆盖本机输入、离开焦点后的迟到响应、认证和 UTF-8 大小边界。
+
+自动化脚本：`scripts/check_direct_input.py`（使用独立测试实例，不要对日常使用的配置运行）。
+
+下方保留 0.1.0-zh.1 的首次中文版验收记录。
+
 验收日期：2026-09-17。版本：`0.1.0-zh.1`，基于 CwithW `2d6ab81`。
 
 ## 自动化检查

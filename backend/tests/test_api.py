@@ -356,7 +356,7 @@ def test_set_clipboard_success(app_client: TestClient):
     main.browser_mgr.running.pop(pid, None)
 
 
-def test_get_clipboard_from_page(app_client: TestClient):
+def test_get_clipboard_uses_live_x_selection(app_client: TestClient):
     """Mock running profile with a page that has clipboard text."""
     create = app_client.post("/api/profiles", json={"name": "ClipRead"})
     pid = create.json()["id"]
@@ -374,9 +374,12 @@ def test_get_clipboard_from_page(app_client: TestClient):
     mock_running.context = mock_context
     main.browser_mgr.running[pid] = mock_running
 
-    resp = app_client.get(f"/api/profiles/{pid}/clipboard")
+    with patch("backend.main._read_x_clipboard", new_callable=AsyncMock, return_value="fresh clipboard") as read:
+        resp = app_client.get(f"/api/profiles/{pid}/clipboard")
+    read.assert_awaited_once_with(100)
+    mock_page.evaluate.assert_not_awaited()
     assert resp.status_code == 200
-    assert resp.json()["text"] == "copied text"
+    assert resp.json()["text"] == "fresh clipboard"
 
     # Cleanup
     main.browser_mgr.running.pop(pid, None)

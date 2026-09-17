@@ -8,7 +8,7 @@ const remote = vi.hoisted(() => ({ focus: vi.fn(), sendKey: vi.fn() }));
 vi.mock("../lib/api", () => ({
   api: {
     getClipboard: vi.fn(),
-    setClipboard: vi.fn(),
+    prepareClipboard: vi.fn(),
     toggleKeePassXCWindow: vi.fn(),
   },
 }));
@@ -34,26 +34,27 @@ vi.mock("@novnc/novnc/core/rfb.js", () => ({
 
 const mockedApi = api as {
   getClipboard: ReturnType<typeof vi.fn>;
-  setClipboard: ReturnType<typeof vi.fn>;
+  prepareClipboard: ReturnType<typeof vi.fn>;
   toggleKeePassXCWindow: ReturnType<typeof vi.fn>;
 };
 
 beforeEach(() => {
+  vi.clearAllMocks();
   mockedApi.getClipboard.mockResolvedValue({ text: "" });
-  mockedApi.setClipboard.mockResolvedValue({ ok: true });
+  mockedApi.prepareClipboard.mockResolvedValue({ ok: true });
   mockedApi.toggleKeePassXCWindow.mockResolvedValue({ state: "shown" });
 });
 
 describe("ProfileViewer Unicode paste", () => {
   it("waits for the UTF-8 clipboard request before sending the full paste shortcut", async () => {
     let resolveClipboard!: (value: { ok: boolean }) => void;
-    mockedApi.setClipboard.mockReturnValueOnce(new Promise((resolve) => { resolveClipboard = resolve; }));
+    mockedApi.prepareClipboard.mockReturnValueOnce(new Promise((resolve) => { resolveClipboard = resolve; }));
     renderViewer(false);
     await screen.findByText("已连接");
     fireEvent.click(screen.getByRole("button", { name: "中文 / 文本输入" }));
     fireEvent.change(screen.getByLabelText("发送到远程窗口的文字"), { target: { value: "中文 🌏\n第二行" } });
     fireEvent.click(screen.getByRole("button", { name: "发送文字" }));
-    expect(mockedApi.setClipboard).toHaveBeenCalledWith("profile-1", "中文 🌏\n第二行");
+    expect(mockedApi.prepareClipboard).toHaveBeenCalledWith("profile-1", "中文 🌏\n第二行");
     expect(remote.sendKey).not.toHaveBeenCalled();
     resolveClipboard({ ok: true });
     await waitFor(() => expect(remote.sendKey).toHaveBeenCalledTimes(4));
@@ -65,13 +66,13 @@ describe("ProfileViewer Unicode paste", () => {
   });
 
   it("never pastes the stale clipboard when the request fails", async () => {
-    mockedApi.setClipboard.mockRejectedValueOnce(new Error("请求失败"));
+    mockedApi.prepareClipboard.mockRejectedValueOnce(new Error("请求失败"));
     renderViewer(false);
     await screen.findByText("已连接");
     fireEvent.click(screen.getByRole("button", { name: "中文 / 文本输入" }));
     fireEvent.change(screen.getByLabelText("发送到远程窗口的文字"), { target: { value: "待发送的中文" } });
     fireEvent.click(screen.getByRole("button", { name: "发送文字" }));
-    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("请求失败"));
+    await waitFor(() => expect(screen.getByText("请求失败")).not.toBeNull());
     expect(remote.sendKey).not.toHaveBeenCalled();
   });
 });

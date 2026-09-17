@@ -3,6 +3,7 @@ import { ClipboardCopy, Code2, Download, KeyRound, Maximize2, Minimize2, Upload 
 import { api } from "../lib/api";
 import { errorMessage } from "../lib/errors";
 import { RemoteTextInput } from "./RemoteTextInput";
+import { attachDirectInput, writeLocalClipboard } from "../lib/directInput";
 
 interface ProfileViewerProps {
   profileId: string;
@@ -17,20 +18,9 @@ const XK_v = 0x0076;
 type ClipboardActionState = "idle" | "busy" | "success" | "error";
 type KeePassXCWindowState = "unknown" | "shown" | "minimized";
 
-function isClipboardPermissionError(err: unknown) {
-  const name = err instanceof DOMException ? err.name : "";
-  const message = err instanceof Error ? err.message : String(err);
-  return (
-    name === "NotAllowedError" ||
-    name === "SecurityError" ||
-    /clipboard read operation is not allowed|permission|denied/i.test(message)
-  );
-}
-
 export function ProfileViewer({
   profileId,
   cdpUrl,
-  clipboardSync: initialClipboardSync,
   keepassxcEnabled,
   onDisconnect,
 }: ProfileViewerProps) {
@@ -40,7 +30,8 @@ export function ProfileViewer({
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
-  const [clipboardSync, setClipboardSync] = useState(initialClipboardSync);
+  const [directInput, setDirectInput] = useState(true);
+  const [inputStatus, setInputStatus] = useState("可直接输入中文 · Ctrl/Cmd+C、V 复制粘贴");
   const [cdpCopied, setCdpCopied] = useState(false);
   const [setClipboardState, setSetClipboardState] = useState<ClipboardActionState>("idle");
   const [readClipboardState, setReadClipboardState] = useState<ClipboardActionState>("idle");
@@ -107,120 +98,18 @@ export function ProfileViewer({
     };
   }, [profileId, onDisconnect]);
 
-  // Host→VNC: intercept Ctrl+V/Cmd+V at keydown (capture phase)
-  // Must fire BEFORE noVNC's canvas listener to prevent the race condition
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !clipboardSync || !connected) return;
-
-    const handleKeyDown = async (e: KeyboardEvent) => {
-      console.log("[clipboard] keydown:", e.key, "ctrl:", e.ctrlKey, "meta:", e.metaKey, "clipboardSync:", true);
-
-      const isPaste =
-        e.key === "v" && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
-      if (!isPaste) return;
-
-      console.log("[clipboard] intercepted Ctrl+V");
-
-      // Block noVNC from sending the keystroke before clipboard is updated
-      e.stopPropagation();
-      e.preventDefault();
-
-      const rfb = rfbRef.current;
-      if (!rfb) {
-        console.log("[clipboard] no rfb ref, aborting");
-        return;
-      }
-
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text) {
-          console.log("[clipboard] calling setClipboard API...");
-          await api.setClipboard(profileId, text);
-          console.log("[clipboard] setClipboard API success");
-        }
-      } catch (err) {
-        console.warn("[clipboard] error:", err);
-        setClipboardSync(false);
-        return;
-      }
-
-      // Send full Ctrl+V sequence to VNC. We can't rely on Ctrl still being
-      // held because the user may have released it during the async API call.
-      console.log("[clipboard] sending Ctrl+V to VNC");
-      rfb.sendKey(0xffe3, "ControlLeft", true);   // Ctrl press
-      rfb.sendKey(XK_v, "KeyV", true);             // V press
-      rfb.sendKey(XK_v, "KeyV", false);            // V release
-      rfb.sendKey(0xffe3, "ControlLeft", false);   // Ctrl release
-    };
-
-    // capture: true ensures we fire before noVNC's canvas listener
-    container.addEventListener("keydown", handleKeyDown, true);
-    return () => container.removeEventListener("keydown", handleKeyDown, true);
-  }, [profileId, clipboardSync, connected]);
-
-  // VNC→Host: keep a best-effort listener for standard noVNC clipboard
-  // events. KasmVNC CutText transport is disabled server-side to prevent
-  // private BinaryClipboard type 180 messages from reaching noVNC.
-  useEffect(() => {
-    const rfb = rfbRef.current;
-    console.log("[clipboard] VNC→Host effect: rfb=", !!rfb, "sync=", clipboardSync, "connected=", connected);
-    if (!rfb || !clipboardSync || !connected) return;
-
-    const handleClipboard = (e: any) => {
-      const text = e.detail?.text;
-      if (text) {
-        navigator.clipboard.writeText(text).then(() => {
-          console.log("[clipboard] writeText success");
-        }).catch((err) => {
-          console.warn("[clipboard] writeText failed:", err);
-        });
-      }
-    };
-
-    console.log("[clipboard] registering clipboard event listener on rfb");
-    rfb.addEventListener("clipboard", handleClipboard);
-    return () => {
-      console.log("[clipboard] removing clipboard event listener");
-      rfb.removeEventListener("clipboard", handleClipboard);
-    };
-  }, [clipboardSync, connected]);
-
-  // VNC→Host polling: Chrome doesn't write to X11 clipboard under KasmVNC.
-  // Poll via Playwright CDP instead of relying on KasmVNC clipboard messages.
-  useEffect(() => {
-    if (!clipboardSync || !connected) return;
-
-    let cancelled = false;
-    let lastText = "";
-
-    const poll = async () => {
-      if (cancelled) return;
-      try {
-        const { text } = await api.getClipboard(profileId);
-        if (text && text !== lastText) {
-          lastText = text;
-          await navigator.clipboard.writeText(text).catch((err) =>
-            console.warn("[clipboard] poll writeText failed:", err)
-          );
-        }
-      } catch (err) {
-        console.warn("[clipboard] poll error, stopping:", err);
-        cancelled = true;
-        return;
-      }
-      if (!cancelled) {
-        setTimeout(poll, 2000);
-      }
-    };
-
-    // Start polling after a short delay
-    const timer = setTimeout(poll, 2000);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [profileId, clipboardSync, connected]);
+    if (!connected || !directInput || !containerRef.current || !rfbRef.current) return;
+    const controller = attachDirectInput({
+      container: containerRef.current,
+      remote: rfbRef.current,
+      prepareClipboard: (text) => api.prepareClipboard(profileId, text),
+      copySelection: () => api.getClipboard(profileId),
+      readClipboard: () => api.getClipboard(profileId),
+      onStatus: setInputStatus,
+    });
+    return () => controller.destroy();
+  }, [connected, directInput, profileId]);
 
   const toggleFullscreen = async () => {
     if (!viewerRef.current) return;
@@ -238,7 +127,7 @@ export function ProfileViewer({
   const sendText = async (text: string) => {
     const rfb = rfbRef.current;
     if (!rfb || !connected) throw new Error("远程浏览器尚未连接");
-    await api.setClipboard(profileId, text);
+    await api.prepareClipboard(profileId, text);
     // The request may outlive the connection. Never paste into a replacement session.
     if (rfbRef.current !== rfb) throw new Error("连接已断开，请重新连接后发送");
     rfb.focus();
@@ -268,38 +157,18 @@ export function ProfileViewer({
   };
 
   const handleSetClipboard = async () => {
+    if (!navigator.clipboard?.readText) {
+      setDirectInput(true);
+      containerRef.current?.querySelector<HTMLTextAreaElement>(".remote-ime-input")?.focus({ preventScroll: true });
+      setInputStatus("请按 Ctrl/Cmd+V，将本机文字粘贴到远程窗口");
+      return;
+    }
     settleActionState(setSetClipboardState, "busy");
     try {
-      let text = "";
-      try {
-        if (!navigator.clipboard?.readText) {
-          throw new Error("当前环境不支持剪贴板接口");
-        }
-        text = await navigator.clipboard.readText();
-      } catch (err) {
-        if (isClipboardPermissionError(err)) {
-          console.debug("[clipboard] manual set cancelled or denied:", err);
-          settleActionState(setSetClipboardState, "idle");
-          return;
-        }
-        console.warn("[clipboard] manual set readText unavailable:", err);
-        const fallback = window.prompt("粘贴要发送到远程浏览器剪贴板的文字", "");
-        if (fallback === null) {
-          settleActionState(setSetClipboardState, "idle");
-          return;
-        }
-        text = fallback;
-      }
-
-      await api.setClipboard(profileId, text);
-      try {
-        rfbRef.current?.clipboardPasteFrom?.(text);
-      } catch (err) {
-        console.warn("[clipboard] noVNC clipboardPasteFrom failed:", err);
-      }
+      await sendText(await navigator.clipboard.readText());
       settleActionState(setSetClipboardState, "success");
     } catch (err) {
-      console.warn("[clipboard] manual set failed:", err);
+      setInputStatus(errorMessage(err, "请点击远程输入框，然后按 Ctrl/Cmd+V 粘贴"));
       settleActionState(setSetClipboardState, "error");
     }
   };
@@ -309,7 +178,7 @@ export function ProfileViewer({
     try {
       const { text } = await api.getClipboard(profileId);
       try {
-        await navigator.clipboard.writeText(text);
+        await writeLocalClipboard(text);
       } catch (err) {
         console.warn("[clipboard] manual read writeText failed:", err);
         window.prompt("复制远程浏览器的剪贴板文字", text);
@@ -395,7 +264,7 @@ export function ProfileViewer({
           <button
             onClick={handleSetClipboard}
             className={actionClass(setClipboardState)}
-            title="发送剪贴板到远程浏览器"
+            title="粘贴本机文字（Ctrl/Cmd+V）"
             disabled={!connected || setClipboardState === "busy"}
           >
             <Upload className="h-3.5 w-3.5" />
@@ -403,7 +272,7 @@ export function ProfileViewer({
           <button
             onClick={handleReadClipboard}
             className={actionClass(readClipboardState)}
-            title="读取远程浏览器剪贴板"
+            title="复制远程剪贴板到本机"
             disabled={!connected || readClipboardState === "busy"}
           >
             <Download className="h-3.5 w-3.5" />
@@ -424,9 +293,9 @@ export function ProfileViewer({
             </button>
           )}
           <button
-            onClick={() => { console.log("[clipboard] toggle:", !clipboardSync); setClipboardSync(!clipboardSync); }}
-            className={`p-1 ${clipboardSync ? "text-accent" : "text-gray-500 hover:text-gray-300"}`}
-            title={clipboardSync ? "关闭剪贴板同步" : "开启剪贴板同步"}
+            onClick={() => setDirectInput(!directInput)}
+            className={`p-1 ${directInput ? "text-accent" : "text-gray-500 hover:text-gray-300"}`}
+            title={directInput ? "关闭直接输入和复制粘贴" : "开启直接输入和复制粘贴"}
             disabled={!connected}
           >
             <ClipboardCopy className="h-3.5 w-3.5" />
@@ -441,12 +310,15 @@ export function ProfileViewer({
         </div>
       </div>
 
+      <div role="status" className="px-3 py-1 text-xs text-gray-400 border-b border-border" aria-live="polite">
+        {directInput ? inputStatus : "直接输入已关闭，可使用备用文字面板"}
+      </div>
       <RemoteTextInput connected={connected} onSend={sendText} />
 
       {/* VNC canvas container */}
       <div
         ref={containerRef}
-        className="flex-1 bg-black overflow-hidden"
+        className="relative flex-1 bg-black overflow-hidden"
         style={{ minHeight: 0 }}
       />
     </div>

@@ -12,7 +12,7 @@ import logging
 import os
 import struct
 import shutil
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from http.cookies import SimpleCookie
 from pathlib import Path
 from urllib.parse import urlparse
@@ -568,7 +568,7 @@ async def get_system_status():
 
 # ── Clipboard Relay ──────────────────────────────────────────────────────────
 
-_CLIPBOARD_MAX_READ = 1_048_576  # 1MB cap on GET response
+_CLIPBOARD_MAX_READ = 1_048_576  # Unicode characters; native reads are capped at 4 MiB
 
 # Track xclip processes per display so we can kill the old one before spawning new
 _xclip_procs: dict[int, asyncio.subprocess.Process] = {}
@@ -605,57 +605,67 @@ async def set_clipboard(profile_id: str, body: ClipboardRequest):
     return {"ok": True}
 
 
-@app.get("/api/profiles/{profile_id}/clipboard")
-async def get_clipboard(profile_id: str):
-    """Read the VNC session's clipboard.
-
-    Chrome doesn't write to X11 clipboard under KasmVNC, so xclip can't read it.
-    Instead, read via Playwright's CDP connection to Chrome (navigator.clipboard.readText).
-    Falls back to xclip for non-Chrome clipboard owners.
-    """
-    running = browser_mgr.running.get(profile_id)
-    if not running:
-        raise HTTPException(status_code=404, detail="Profile not running")
-
-    # Read Chrome's current text selection via Playwright.
-    # Chrome's native copy (via VNC Ctrl+C) doesn't write to X11 clipboard
-    # and doesn't fire DOM events, so we read the visible selection instead.
-    # The init script also captures copy events when they do fire.
-    # Check all pages — user may have copied in any tab
-    try:
-        for page in running.context.pages:
-            try:
-                text = await page.evaluate("window.__clipboardText || ''")
-                if text:
-                    return {"text": text[:_CLIPBOARD_MAX_READ]}
-            except Exception as exc:
-                logger.debug("Clipboard read failed on page: %s", exc)
-                continue
-    except Exception as exc:
-        logger.debug("Playwright clipboard read failed: %s", exc)
-
-    # Fallback: xclip for non-Chrome clipboard owners
-    import os
-
-    env = {**os.environ, "DISPLAY": f":{running.display}"}
+async def _read_x_clipboard(display: int) -> str:
+    """Read the actual X selection, never a stale value cached in an old tab."""
     proc = await asyncio.create_subprocess_exec(
-        "xclip", "-selection", "clipboard", "-o",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        env=env,
+        "xclip", "-selection", "clipboard", "-out", "-target", "UTF8_STRING",
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+        env={**os.environ, "DISPLAY": f":{display}"},
     )
     try:
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        assert proc.stdout is not None
+        try:
+            stdout = await asyncio.wait_for(proc.stdout.readexactly(_CLIPBOARD_MAX_READ * 4 + 1), timeout=2)
+            with suppress(ProcessLookupError):
+                proc.kill()  # Bound oversized native clipboard contents before buffering them.
+        except asyncio.IncompleteReadError as exc:
+            stdout = exc.partial
+        await asyncio.wait_for(proc.wait(), timeout=2)
     except asyncio.TimeoutError:
         proc.kill()
         await proc.wait()
-        return {"text": ""}
+        return ""
+    if proc.returncode != 0 and not stdout:
+        return ""
+    return stdout[:_CLIPBOARD_MAX_READ * 4].decode("utf-8", errors="ignore")[:_CLIPBOARD_MAX_READ]
 
-    if proc.returncode != 0:
-        return {"text": ""}
 
-    text = stdout[:_CLIPBOARD_MAX_READ].decode("utf-8", errors="replace")
+@app.get("/api/profiles/{profile_id}/clipboard")
+async def get_clipboard(profile_id: str):
+    running = browser_mgr.running.get(profile_id)
+    if not running:
+        raise HTTPException(status_code=404, detail="Profile not running")
+    text = await _read_x_clipboard(running.display)
+    if browser_mgr.running.get(profile_id) is not running:
+        raise HTTPException(status_code=409, detail="Profile is not running")
     return {"text": text}
+
+
+# Serialize native input and clipboard changes for each running display.
+_input_locks: dict[int, asyncio.Lock] = {}
+
+
+@app.post("/api/profiles/{profile_id}/clipboard/prepare")
+async def prepare_clipboard(profile_id: str, body: ClipboardRequest):
+    running = browser_mgr.running.get(profile_id)
+    if not running:
+        raise HTTPException(status_code=404, detail="Profile not running")
+    async with _input_locks.setdefault(running.display, asyncio.Lock()):
+        if browser_mgr.running.get(profile_id) is not running:
+            raise HTTPException(status_code=409, detail="Profile is not running")
+        await set_clipboard(profile_id, body)
+        deadline = asyncio.get_running_loop().time() + 3
+        for _ in range(20):
+            if asyncio.get_running_loop().time() >= deadline:
+                raise HTTPException(status_code=504, detail="Clipboard update timed out")
+            if await _read_x_clipboard(running.display) == body.text:
+                break
+            await asyncio.sleep(0.02)
+        else:
+            raise HTTPException(status_code=504, detail="Clipboard update timed out")
+        if browser_mgr.running.get(profile_id) is not running:
+            raise HTTPException(status_code=409, detail="Profile is not running")
+    return {"ok": True}
 
 
 # ── VNC WebSocket Proxy ──────────────────────────────────────────────────────

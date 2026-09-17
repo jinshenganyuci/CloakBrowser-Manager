@@ -21,3 +21,12 @@ declare module "@novnc/novnc/core/rfb.js" {
     clipboardPasteFrom(text: string): void;
   }
 }
+
+declare module "@novnc/novnc/core/input/keyboard.js" {
+  export default class Keyboard {
+    constructor(target: HTMLElement);
+    onkeyevent: (keysym: number, code: string, down: boolean) => void;
+    grab(): void;
+    ungrab(): void;
+  }
+}

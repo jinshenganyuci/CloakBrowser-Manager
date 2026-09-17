@@ -64,3 +64,19 @@
     @apply block text-xs font-medium text-gray-400 mb-1;
   }
 }
+
+/* Editable, focusable and positioned at the remote click for native IME candidates. */
+.remote-ime-input {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  opacity: 0.01;
+  pointer-events: none;
+  resize: none;
+  font-size: 16px;
+  z-index: 2;
+}
