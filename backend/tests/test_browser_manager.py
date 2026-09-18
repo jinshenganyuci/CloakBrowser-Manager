@@ -24,6 +24,7 @@ from backend.browser_manager import (
     _build_profile_process_env,
     _ensure_keepassxc_config,
     _init_profile_defaults,
+    _sync_profile_locale,
     _keepassxc_paths,
     _launch_args_include_keepassxc,
     _normalize_proxy,
@@ -597,6 +598,24 @@ def test_init_creates_bookmarks(tmp_path: Path):
     assert len(children) == 4  # 4 folders
     folder_names = {f["name"] for f in children}
     assert folder_names == {"自动化检测", "浏览器指纹", "请求头与 TLS", "reCAPTCHA"}
+
+
+def test_profile_locale_updates_old_languages_without_losing_preferences(tmp_path: Path):
+    _init_profile_defaults(tmp_path)
+    path = tmp_path / "Default" / "Preferences"
+    prefs = json.loads(path.read_text())
+    prefs["intl"] = {"accept_languages": "zh-CN,zh", "selected_languages": "zh-CN,zh", "charset_default": "UTF-8"}
+    prefs["homepage"] = "https://example.test/"
+    path.write_text(json.dumps(prefs))
+    _sync_profile_locale(tmp_path, "ja-JP")
+    expected = {**prefs, "intl": {**prefs["intl"], "accept_languages": "ja-JP,ja", "selected_languages": "ja-JP,ja"}}
+    assert json.loads(path.read_text()) == expected
+    unchanged = path.read_bytes()
+    _sync_profile_locale(tmp_path, None)
+    assert path.read_bytes() == unchanged
+    path.write_text("invalid json")
+    _sync_profile_locale(tmp_path, "de-DE")
+    assert path.read_text() == "invalid json"
 
 
 def test_init_creates_preferences(tmp_path: Path):

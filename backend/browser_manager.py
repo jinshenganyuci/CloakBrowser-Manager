@@ -369,6 +369,30 @@ def _init_profile_defaults(user_data_dir: Path) -> None:
         logger.info("Set DuckDuckGo as default search for %s", user_data_dir.name)
 
 
+def _sync_profile_locale(user_data_dir: Path, locale: str | None) -> None:
+    """Keep Chromium's visible language list consistent with the profile locale.
+
+    Fingerprint flags override network/JS languages, but Chromium retains its old
+    Preferences language list across launches. Change only these language keys,
+    while the browser is stopped, preserving all other user preferences.
+    """
+    if not locale:
+        return
+    prefs_path = user_data_dir / "Default" / "Preferences"
+    try:
+        prefs = json.loads(prefs_path.read_text()) if prefs_path.exists() else {}
+        intl = prefs.setdefault("intl", {})
+        languages = ",".join(dict.fromkeys((locale, locale.split("-")[0])))
+        intl["accept_languages"] = languages
+        intl["selected_languages"] = languages
+        prefs_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = prefs_path.with_name("Preferences.locale-tmp")
+        temporary.write_text(json.dumps(prefs, ensure_ascii=False))
+        temporary.replace(prefs_path)
+    except (OSError, ValueError, TypeError, AttributeError):
+        logger.warning("Could not update browser language preferences for %s", user_data_dir.name)
+
+
 BASE_CDP_PORT = 5100
 CDP_PORT_RANGE = 100  # cycle through 5100-5199 to avoid TIME_WAIT collisions
 
@@ -428,6 +452,7 @@ class BrowserManager:
 
         # Set up bookmarks and search engine on first launch
         _init_profile_defaults(user_data_dir)
+        _sync_profile_locale(user_data_dir, profile.get("locale"))
 
         context: Any | None = None
         keepassxc_process: asyncio.subprocess.Process | None = None

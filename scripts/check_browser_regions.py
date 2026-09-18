@@ -59,12 +59,16 @@ async def main():
                     await page.goto("chrome://settings/languages")
                     await expect(page.locator("html")).to_have_attribute("lang", ui_lang)
                     await expect(page).to_have_title(re.compile(ui_title))
+                    preferred = await page.evaluate("""() => new Promise(resolve =>
+                        chrome.settingsPrivate.getPref('intl.accept_languages', pref => resolve(pref.value)))""")
+                    assert preferred.split(',')[0] == locale, preferred
                     if os.environ.get("REGION_CHECK_SCREENSHOTS"):
                         dest = Path(os.environ["REGION_CHECK_SCREENSHOTS"])
                         dest.mkdir(parents=True, exist_ok=True)
                         await page.screenshot(path=str(dest / f"{locale}.png"))
                     print(json.dumps({"result": "PASS", **runtime, "ui_language": ui_lang,
-                                      "ui_title": await page.title(), "accept_language": accept_language},
+                                      "ui_title": await page.title(), "accept_language": accept_language,
+                                      "preferred_languages": preferred},
                                      ensure_ascii=False), flush=True)
                     response = await api.post(f"/api/profiles/{profile_id}/stop")
                     response.raise_for_status()
