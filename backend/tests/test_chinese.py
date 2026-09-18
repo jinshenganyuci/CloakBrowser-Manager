@@ -48,10 +48,10 @@ def test_clipboard_writes_utf8_without_latin1_loss(app_client):
         main._xclip_procs.pop(running.display, None)
 
 
-def test_chinese_bookmarks_preserve_existing_user_data(tmp_path):
+def test_default_bookmarks_are_not_translated_and_preserve_user_data(tmp_path):
     _init_profile_defaults(tmp_path)
     bookmarks = tmp_path / "Default" / "Bookmarks"
-    assert "浏览器指纹" in bookmarks.read_text(encoding="utf-8")
+    assert "Detection Tests" in bookmarks.read_text(encoding="utf-8")
     bookmarks.write_text('{"custom": "我的书签"}', encoding="utf-8")
     _init_profile_defaults(tmp_path)
     assert bookmarks.read_text(encoding="utf-8") == '{"custom": "我的书签"}'

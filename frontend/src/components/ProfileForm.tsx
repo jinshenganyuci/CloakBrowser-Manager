@@ -64,8 +64,8 @@ const GPU_PRESETS: Record<string, { vendor: string; renderer: string }> = {
 
 const DEFAULT_FORM: ProfileCreateData = {
   name: "",
-  locale: "zh-CN",
-  timezone: "Asia/Shanghai",
+  locale: null,
+  timezone: null,
   platform: "windows",
   screen_width: 1280,
   screen_height: 720,
@@ -341,7 +341,7 @@ export function ProfileForm({ profile, onSave, onDelete, onCancel }: ProfileForm
               />
               根据代理 IP 自动检测时区和语言（GeoIP）
             </label>
-            <p className="text-xs text-gray-500">新配置默认使用简体中文和中国标准时间。可从下拉菜单选择常用地区，也可自定义。语言与时区独立设置；使用 GeoIP 自动检测时，请将对应选项设为“留空”。保存后需重新启动该浏览器配置才能生效。此处控制远程浏览器，管理界面始终使用简体中文。</p>
+            <p className="text-xs text-gray-500">语言和时区默认留空，可选择常用地区或自定义。留空时使用浏览器默认值，开启 GeoIP 后自动检测；手动设置优先，保存后重启配置生效。管理界面的中文显示不影响这些设置。</p>
           </div>
         </section>
 

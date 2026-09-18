@@ -271,6 +271,7 @@ def test_ensure_keepassxc_config_enables_browser_and_preserves_settings(tmp_path
     paths.data_dir.mkdir()
     paths.config.write_text(
         "Theme=dark\n\n"
+        "[GUI]\nLanguage=de\n\n"
         "[Browser]\nShowNotification=false\n\n"
         "[Security]\nLockDatabaseIdle=true\nLockDatabaseMinimize=true\n"
     )
@@ -280,7 +281,8 @@ def test_ensure_keepassxc_config_enables_browser_and_preserves_settings(tmp_path
     config = paths.config.read_text()
     assert "Theme=dark" in config
     assert "SingleInstance=false" in config
-    assert "Language=zh_CN" in config
+    assert "Language=de" in config
+    assert "Language=zh_CN" not in config
     assert "[Browser]" in config
     assert "Enabled=true" in config
     assert "UpdateBinaryPath=false" in config
@@ -307,8 +309,8 @@ def test_profile_process_env_removes_password(monkeypatch: pytest.MonkeyPatch, t
     assert env["XDG_RUNTIME_DIR"] == str(paths.runtime_dir)
     assert env["TMPDIR"] == str(paths.runtime_dir)
     assert env["KPXC_CONFIG"] == str(paths.config)
-    assert env["LANG"] == "C.UTF-8"
-    assert env["LC_ALL"] == "C.UTF-8"
+    assert env.get("LANG") == os.environ.get("LANG")
+    assert env.get("LANGUAGE") == os.environ.get("LANGUAGE")
 
 
 def test_browser_language_is_isolated_from_container_and_other_profiles(
@@ -597,7 +599,7 @@ def test_init_creates_bookmarks(tmp_path: Path):
     children = data["roots"]["bookmark_bar"]["children"]
     assert len(children) == 4  # 4 folders
     folder_names = {f["name"] for f in children}
-    assert folder_names == {"自动化检测", "浏览器指纹", "请求头与 TLS", "reCAPTCHA"}
+    assert folder_names == {"Detection Tests", "Fingerprint", "Headers & TLS", "reCAPTCHA"}
 
 
 def test_profile_locale_updates_old_languages_without_losing_preferences(tmp_path: Path):

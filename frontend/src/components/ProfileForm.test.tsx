@@ -51,8 +51,8 @@ describe("ProfileForm launch arguments", () => {
 
     await waitFor(() => expect(onSave).toHaveBeenCalledOnce());
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
-      locale: "zh-CN",
-      timezone: "Asia/Shanghai",
+      locale: null,
+      timezone: null,
       screen_width: 1280,
       screen_height: 720,
       humanize: true,

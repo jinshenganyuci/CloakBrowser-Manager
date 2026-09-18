@@ -45,18 +45,6 @@ RUN test "${TARGETARCH}" = "amd64" \
     && mv squashfs-root keepassxc \
     && rm /tmp/KeePassXC.AppImage
 
-# The AppImage includes KeePassXC Chinese strings but omits Qt's simplified
-# Chinese catalog, leaving standard buttons and file dialogs in English.
-# Extract only translations and their license; retain the bundled Qt runtime.
-FROM keepassxc-assets AS qt-translations
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get -o Acquire::Retries=5 update \
-    && cd /tmp \
-    && apt-get download qttranslations5-l10n \
-    && dpkg-deb -x qttranslations5-l10n_*.deb /qt-translations \
-    && test -s /qt-translations/usr/share/qt5/translations/qtbase_zh_CN.qm
-
 # Stage 2: Build React frontend
 FROM node:20-slim AS frontend-builder
 WORKDIR /build
@@ -84,16 +72,13 @@ RUN sed -i \
     libcairo2 libasound2 libx11-xcb1 libfontconfig1 libx11-6 \
     libxcb1 libxext6 libxshmfence1 \
     libglib2.0-0 libgtk-3-0 libpangocairo-1.0-0 libcairo-gobject2 \
-    libgdk-pixbuf-2.0-0 libxss1 libxtst6 fonts-liberation fonts-noto-cjk fonts-noto-color-emoji locales \
+    libgdk-pixbuf-2.0-0 libxss1 libxtst6 fonts-liberation fonts-noto-cjk fonts-noto-color-emoji \
     libgl1 libgl1-mesa-dri libegl-mesa0 \
     procps wget ca-certificates xclip xdotool libgpg-error0 libusb-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Chinese text rendering and native application translations (KeePassXC / Qt).
-RUN sed -i 's/^# zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen \
-    && locale-gen zh_CN.UTF-8 \
-    && fc-cache -f
-ENV LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh LC_ALL=zh_CN.UTF-8
+# Fonts support Chinese text without changing application languages.
+RUN fc-cache -f
 
 # Install the checksum-pinned official runtime. Small stable wrappers preserve
 # the expected executable paths for the manager and native messaging manifest.
@@ -155,11 +140,6 @@ COPY backend/ /app/backend/
 
 # Frontend build from stage 1
 COPY --from=frontend-builder /build/dist /app/frontend/dist
-
-COPY --from=qt-translations /qt-translations/usr/share/qt5/translations/qtbase_zh_CN.qm \
-    /opt/keepassxc/usr/share/keepassxc/translations/qtbase_zh_CN.qm
-COPY --from=qt-translations /qt-translations/usr/share/doc/qttranslations5-l10n/copyright \
-    /opt/keepassxc/usr/share/doc/qttranslations5-l10n/copyright
 
 EXPOSE 8080
 

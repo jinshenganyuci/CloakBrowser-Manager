@@ -17,7 +17,7 @@ from playwright.async_api import async_playwright, expect
 
 ROOT = Path(__file__).resolve().parents[1]
 IMAGE = os.environ.get('SMOKE_IMAGE', 'cloakbrowser-manager:zh-local')
-PORT = int(os.environ.get('SMOKE_PORT', '18081'))
+PORT = int(os.environ.get('SMOKE_PORT', '18082'))
 BASE = f'http://127.0.0.1:{PORT}'
 NAME = f'cloakbrowser-zh-check-{secrets.token_hex(3)}'
 
@@ -51,6 +51,10 @@ async def main():
                 await ui.goto(BASE)
                 await ui.get_by_role('button', name='新建配置', exact=True).first.click()
                 await ui.get_by_label('配置名称', exact=True).fill('中文远程浏览器验收 🌏')
+                await expect(ui.get_by_label('浏览器语言', exact=True)).to_have_value('')
+                await expect(ui.get_by_label('时区', exact=True)).to_have_value('')
+                await ui.get_by_label('浏览器语言', exact=True).select_option('zh-CN')
+                await ui.get_by_label('时区', exact=True).select_option('Asia/Shanghai')
                 await ui.get_by_role('button', name='创建', exact=True).click()
                 await expect(ui.get_by_role('heading', name='编辑配置')).to_be_visible()
                 await ui.get_by_role('button', name='启动', exact=True).click()

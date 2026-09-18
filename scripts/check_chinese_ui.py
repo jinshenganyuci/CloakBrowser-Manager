@@ -75,8 +75,8 @@ async def main():
         await page.get_by_role('button', name='登录', exact=True).click()
         await page.get_by_role('button', name='新建配置', exact=True).first.click()
         await page.get_by_label('配置名称', exact=True).fill('中文工作账号 · 繁體中文 🌏')
-        await expect(page.get_by_label('浏览器语言', exact=True)).to_have_value('zh-CN')
-        await expect(page.get_by_label('时区', exact=True)).to_have_value('Asia/Shanghai')
+        await expect(page.get_by_label('浏览器语言', exact=True)).to_have_value('')
+        await expect(page.get_by_label('时区', exact=True)).to_have_value('')
         await page.get_by_label('备注', exact=True).fill('第一行：简体中文\n第二行：繁體中文與 Emoji 🌏')
         await page.get_by_label('添加标签').fill('中文测试')
         await page.get_by_label('添加标签').press('Enter')
@@ -85,6 +85,7 @@ async def main():
         await page.screenshot(path=str(ROOT / 'docs/screenshots/chinese-profile.png'), full_page=True)
         await page.get_by_role('button', name='创建', exact=True).click()
         await expect(page.get_by_role('heading', name='编辑配置')).to_be_visible()
+        assert profiles[0]['locale'] is None and profiles[0]['timezone'] is None
         assert profiles[0]['notes'].endswith('Emoji 🌏')
         assert profiles[0]['tags'][0]['tag'] == '中文测试'
         await page.get_by_label('搜索配置').fill('繁體中文')

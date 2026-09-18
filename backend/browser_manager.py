@@ -187,7 +187,6 @@ def _ensure_keepassxc_config(paths: KeePassXCPaths) -> None:
         lines = []
 
     _set_ini_root_value(lines, "SingleInstance", "false")
-    _set_ini_value(lines, "GUI", "Language", "zh_CN")
     _set_ini_value(lines, "Browser", "Enabled", "true")
     _set_ini_value(lines, "Browser", "UpdateBinaryPath", "false")
     for key in (
@@ -221,9 +220,6 @@ def _build_profile_process_env(
 
     if keepassxc_paths:
         env.update({
-            # Select the translated UI in config independently of libc locale.
-            "LANG": "C.UTF-8",
-            "LC_ALL": "C.UTF-8",
             "TMPDIR": str(runtime_dir),
             "KPXC_CONFIG": str(keepassxc_paths.config),
             "KPXC_CONFIG_LOCAL": str(keepassxc_paths.local_config),
@@ -234,7 +230,7 @@ def _build_profile_process_env(
         })
     elif browser_locale:
         # Linux Chromium selects its UI from LANGUAGE, not --lang. Override the
-        # container's Chinese UI only in this browser's environment. C.UTF-8 is
+        # inherited UI language only in this browser's environment. C.UTF-8 is
         # always available; LANGUAGE selects Chromium's bundled translations
         # without requiring a generated libc locale for every browser language.
         env.update({
@@ -305,47 +301,47 @@ def _init_profile_defaults(user_data_dir: Path) -> None:
             "checksum": "",
             "roots": {
                 "bookmark_bar": {
-                    "type": "folder", "id": "1", "name": "书签栏",
+                    "type": "folder", "id": "1", "name": "Bookmarks bar",
                     "date_added": ts, "date_modified": ts,
                     "children": [
-                        folder("自动化检测", [
-                            bm("Rebrowser 自动化检测", "https://bot-detector.rebrowser.net/"),
+                        folder("Detection Tests", [
+                            bm("Rebrowser Bot Detector", "https://bot-detector.rebrowser.net/"),
                             bm("Incolumitas", "https://bot.incolumitas.com/"),
                             bm("SannySort", "https://bot.sannysoft.com/"),
-                            bm("BrowserScan 自动化检测", "https://www.browserscan.net/bot-detection"),
-                            bm("FingerprintJS 演示", "https://demo.fingerprint.com/web-scraping"),
+                            bm("BrowserScan Bot", "https://www.browserscan.net/bot-detection"),
+                            bm("FingerprintJS Demo", "https://demo.fingerprint.com/web-scraping"),
                             bm("Pixelscan", "https://pixelscan.net/fingerprint-check"),
                             bm("CreepJS", "https://abrahamjuliot.github.io/creepjs/"),
                             bm("fingerprint-scan", "https://fingerprint-scan.com/"),
-                            bm("DeviceInfo 自动化检测", "https://deviceandbrowserinfo.com/are_you_a_bot"),
+                            bm("DeviceInfo Bot", "https://deviceandbrowserinfo.com/are_you_a_bot"),
                         ]),
-                        folder("浏览器指纹", [
+                        folder("Fingerprint", [
                             bm("BrowserLeaks Canvas", "https://browserleaks.com/canvas"),
                             bm("BrowserLeaks WebGL", "https://browserleaks.com/webgl"),
-                            bm("BrowserLeaks 字体", "https://browserleaks.com/fonts"),
+                            bm("BrowserLeaks Fonts", "https://browserleaks.com/fonts"),
                             bm("BrowserLeaks JS", "https://browserleaks.com/javascript"),
                             bm("FingerprintJS OSS", "https://fingerprintjs.github.io/fingerprintjs/"),
-                            bm("音频指纹", "https://audiofingerprint.openwpm.com/"),
+                            bm("Audio FP", "https://audiofingerprint.openwpm.com/"),
                             bm("DeviceInfo", "https://deviceandbrowserinfo.com/info_device"),
                         ]),
-                        folder("请求头与 TLS", [
+                        folder("Headers & TLS", [
                             bm("httpbin headers", "https://httpbin.org/headers"),
                             bm("httpbin IP", "https://httpbin.org/ip"),
-                            bm("TLS 指纹", "https://tls.browserleaks.com/"),
+                            bm("TLS Fingerprint", "https://tls.browserleaks.com/"),
                         ]),
                         folder("reCAPTCHA", [
-                            bm("Google v3 演示", "https://recaptcha-demo.appspot.com/recaptcha-v3-request-scores.php"),
+                            bm("Google v3 Demo", "https://recaptcha-demo.appspot.com/recaptcha-v3-request-scores.php"),
                             bm("2captcha v3", "https://2captcha.com/demo/recaptcha-v3"),
                             bm("Turnstile", "https://peet.ws/turnstile-test/non-interactive.html"),
                         ]),
                     ],
                 },
-                "other": {"type": "folder", "id": "2", "name": "其他书签", "children": []},
-                "synced": {"type": "folder", "id": "3", "name": "移动设备书签", "children": []},
+                "other": {"type": "folder", "id": "2", "name": "Other bookmarks", "children": []},
+                "synced": {"type": "folder", "id": "3", "name": "Mobile bookmarks", "children": []},
             },
             "version": 1,
         }
-        bookmarks_path.write_text(json.dumps(bookmarks, indent=2, ensure_ascii=False), encoding="utf-8")
+        bookmarks_path.write_text(json.dumps(bookmarks, indent=2))
         logger.info("Created default bookmarks for %s", user_data_dir.name)
 
     # --- DuckDuckGo as default search engine ---
