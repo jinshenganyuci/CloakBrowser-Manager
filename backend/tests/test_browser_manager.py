@@ -310,6 +310,26 @@ def test_profile_process_env_removes_password(monkeypatch: pytest.MonkeyPatch, t
     assert env["LC_ALL"] == "C.UTF-8"
 
 
+def test_browser_language_is_isolated_from_container_and_other_profiles(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+):
+    monkeypatch.setenv("LANG", "zh_CN.UTF-8")
+    monkeypatch.setenv("LC_ALL", "zh_CN.UTF-8")
+    monkeypatch.setenv("LANGUAGE", "zh_CN:zh")
+    monkeypatch.setenv(KEEPASSXC_PASSWORD_ENV, "top-secret")
+    japanese = _build_profile_process_env(100, tmp_path / "jp", browser_locale="ja-JP")
+    german = _build_profile_process_env(101, tmp_path / "de", browser_locale="de-DE")
+    default = _build_profile_process_env(102, tmp_path / "default")
+
+    assert japanese["LANGUAGE"] == "ja_JP"
+    assert german["LANGUAGE"] == "de_DE"
+    assert japanese["LANG"] == german["LANG"] == "C.UTF-8"
+    assert japanese["LC_ALL"] == german["LC_ALL"] == "C.UTF-8"
+    assert default["LANGUAGE"] == os.environ["LANGUAGE"] == "zh_CN:zh"
+    assert os.environ["LANG"] == os.environ["LC_ALL"] == "zh_CN.UTF-8"
+    assert all(KEEPASSXC_PASSWORD_ENV not in env for env in (japanese, german, default))
+
+
 def test_manager_loads_password_once_and_removes_environment(
     monkeypatch: pytest.MonkeyPatch,
 ):

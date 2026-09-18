@@ -209,6 +209,7 @@ def _build_profile_process_env(
     runtime_dir: Path,
     *,
     keepassxc_paths: KeePassXCPaths | None = None,
+    browser_locale: str | None = None,
 ) -> dict[str, str]:
     """Build a child environment that never exposes the database password."""
     env = os.environ.copy()
@@ -230,6 +231,16 @@ def _build_profile_process_env(
             "XDG_DATA_HOME": str(keepassxc_paths.data_dir / "share"),
             "XDG_CACHE_HOME": str(keepassxc_paths.data_dir / "cache"),
             "XDG_STATE_HOME": str(keepassxc_paths.data_dir / "state"),
+        })
+    elif browser_locale:
+        # Linux Chromium selects its UI from LANGUAGE, not --lang. Override the
+        # container's Chinese UI only in this browser's environment. C.UTF-8 is
+        # always available; LANGUAGE selects Chromium's bundled translations
+        # without requiring a generated libc locale for every browser language.
+        env.update({
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "LANGUAGE": browser_locale.replace("-", "_"),
         })
 
     return env
@@ -458,6 +469,7 @@ class BrowserManager:
             browser_env = _build_profile_process_env(
                 display,
                 keepassxc_runtime_dir,
+                browser_locale=profile.get("locale") or None,
             )
             context = await launch_persistent_context_async(
                 user_data_dir=profile["user_data_dir"],
