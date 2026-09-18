@@ -1,6 +1,7 @@
 import { Save, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { Profile, ProfileCreateData } from "../lib/api";
+import { LOCALE_OPTIONS, RegionSelect, TIMEZONE_OPTIONS } from "./RegionSelect";
 import {
   KEEPASSXC_EXTENSION_ALLOW_ARG,
   KEEPASSXC_EXTENSION_ARG,
@@ -311,45 +312,25 @@ export function ProfileForm({ profile, onSave, onDelete, onCancel }: ProfileForm
                 placeholder="http://user:pass@host:port"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label" htmlFor="profile-field-5">时区</label>
-                <input
-                  id="profile-field-5"
-                  className="input"
-                  value={form.timezone ?? ""}
-                  onChange={(e) => set("timezone", e.target.value || null)}
-                  placeholder="例如：Asia/Shanghai"
-                  list="timezone-options"
-                />
-                <datalist id="timezone-options">
-                  <option value="Asia/Shanghai">中国标准时间</option>
-                  <option value="Asia/Taipei">台北时间</option>
-                  <option value="Asia/Hong_Kong">香港时间</option>
-                  <option value="Asia/Singapore">新加坡时间</option>
-                  <option value="America/New_York">纽约时间</option>
-                  <option value="Europe/London">伦敦时间</option>
-                  <option value="UTC">协调世界时</option>
-                </datalist>
-              </div>
-              <div>
-                <label className="label" htmlFor="profile-field-6">浏览器语言</label>
-                <input
-                  id="profile-field-6"
-                  className="input"
-                  value={form.locale ?? ""}
-                  onChange={(e) => set("locale", e.target.value || null)}
-                  placeholder="例如：zh-CN"
-                  list="locale-options"
-                />
-                <datalist id="locale-options">
-                  <option value="zh-CN">简体中文（中国大陆）</option>
-                  <option value="zh-TW">繁體中文（台灣）</option>
-                  <option value="zh-HK">繁體中文（香港）</option>
-                  <option value="en-US">英语（美国）</option>
-                  <option value="ja-JP">日语（日本）</option>
-                </datalist>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <RegionSelect
+                key={`timezone-${profile?.id ?? "new"}`}
+                id="profile-field-5"
+                label="时区"
+                value={form.timezone}
+                options={TIMEZONE_OPTIONS}
+                placeholder="例如：Asia/Bangkok"
+                onChange={(value) => set("timezone", value)}
+              />
+              <RegionSelect
+                key={`locale-${profile?.id ?? "new"}`}
+                id="profile-field-6"
+                label="浏览器语言"
+                value={form.locale}
+                options={LOCALE_OPTIONS}
+                placeholder="例如：th-TH"
+                onChange={(value) => set("locale", value)}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
               <input
@@ -360,7 +341,7 @@ export function ProfileForm({ profile, onSave, onDelete, onCancel }: ProfileForm
               />
               根据代理 IP 自动检测时区和语言（GeoIP）
             </label>
-            <p className="text-xs text-gray-500">新配置默认使用简体中文和中国标准时间。语言与时区可单独修改或清空；GeoIP 自动检测时请清空手动设置。此处控制远程浏览器，管理界面始终使用简体中文。</p>
+            <p className="text-xs text-gray-500">新配置默认使用简体中文和中国标准时间。可从下拉菜单选择常用地区，也可自定义。语言与时区独立设置；使用 GeoIP 自动检测时，请将对应选项设为“留空”。保存后需重新启动该浏览器配置才能生效。此处控制远程浏览器，管理界面始终使用简体中文。</p>
           </div>
         </section>
 

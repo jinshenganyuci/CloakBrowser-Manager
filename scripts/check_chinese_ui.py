@@ -90,8 +90,40 @@ async def main():
         await page.get_by_label('搜索配置').fill('繁體中文')
         await expect(page.get_by_role('button', name='运行中')).to_have_count(0)
         await expect(page.get_by_role('button').filter(has_text='中文工作账号').first).to_be_visible()
-        await page.get_by_label('浏览器语言', exact=True).fill('zh-TW')
-        await page.get_by_label('时区', exact=True).fill('Asia/Taipei')
+        # Verify actual submitted values, persistence, and independent custom fields.
+        for timezone, locale in [
+            ('America/Los_Angeles', 'en-US'),
+            ('Asia/Tokyo', 'ja-JP'),
+            ('Europe/Berlin', 'de-DE'),
+        ]:
+            await page.get_by_label('时区', exact=True).select_option(timezone)
+            await page.get_by_label('浏览器语言', exact=True).select_option(locale)
+            await page.get_by_role('button', name='保存', exact=True).click()
+            await expect(page.get_by_role('button', name='保存', exact=True)).to_be_enabled()
+            assert profiles[0]['timezone'] == timezone
+            assert profiles[0]['locale'] == locale
+        await page.get_by_label('时区', exact=True).select_option('custom')
+        await page.get_by_label('自定义时区', exact=True).fill('Asia/Bangkok')
+        await expect(page.get_by_label('浏览器语言', exact=True)).to_have_value('de-DE')
+        await page.get_by_label('浏览器语言', exact=True).select_option('custom')
+        await page.get_by_label('自定义浏览器语言', exact=True).fill('th-TH')
+        await page.get_by_role('button', name='保存', exact=True).click()
+        await expect(page.get_by_role('button', name='保存', exact=True)).to_be_enabled()
+        await page.reload()
+        await page.get_by_role('button').filter(has_text='中文工作账号').first.click()
+        await expect(page.get_by_label('自定义时区', exact=True)).to_have_value('Asia/Bangkok')
+        await expect(page.get_by_label('自定义浏览器语言', exact=True)).to_have_value('th-TH')
+        # Entering a preset manually must not remove the input or lose focus mid-edit.
+        await page.get_by_label('自定义浏览器语言', exact=True).fill('en-US')
+        await expect(page.get_by_label('自定义浏览器语言', exact=True)).to_be_focused()
+        await page.get_by_label('时区', exact=True).select_option('')
+        await page.get_by_label('浏览器语言', exact=True).select_option('')
+        await page.get_by_role('button', name='保存', exact=True).click()
+        await expect(page.get_by_role('button', name='保存', exact=True)).to_be_enabled()
+        assert profiles[0]['timezone'] is None
+        assert profiles[0]['locale'] is None
+        await page.get_by_label('浏览器语言', exact=True).select_option('zh-TW')
+        await page.get_by_label('时区', exact=True).select_option('Asia/Taipei')
         await page.get_by_role('button', name='保存', exact=True).click()
         await page.reload()
         await page.get_by_role('button').filter(has_text='中文工作账号').first.click()
@@ -112,7 +144,7 @@ async def main():
         await expect(page.get_by_text('选择一个浏览器配置，或新建配置开始使用')).to_be_visible()
         assert not profiles
         assert not errors, errors
-        print('PASS: Chinese login/errors, create/edit/search/delete, Unicode payload, locale preservation, desktop/mobile layout; no browser errors.')
+        print('PASS: Chinese login/errors, create/edit/search/delete, Unicode payload, US/JP/DE presets, custom locale preservation, clearing, desktop/mobile layout; no browser errors.')
         await browser.close()
 
 asyncio.run(main())
