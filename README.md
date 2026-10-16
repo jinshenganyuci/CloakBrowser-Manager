@@ -139,6 +139,17 @@ CloakBrowser Manager runs on your own machine, and every profile inherits the Cl
 - **Optional authentication** — protect the web UI and API with a single token, or run locally without authentication
 - **Powered by CloakBrowser** — the identities don't just look different, they hold up: a source-level C++ patched Chromium engine tested against Cloudflare Turnstile, reCAPTCHA v3, FingerprintJS, and BrowserScan
 
+## Interface language / 界面语言
+
+The Manager interface defaults to Simplified Chinese. Use the language selector
+in the top bar, Settings, or login page to switch between **简体中文** and **English**.
+Changes apply immediately and are saved in this browser on this device.
+The interface language is independent of each profile's **Locale** setting.
+
+管理界面默认使用简体中文，可在顶部工具栏、设置或登录页切换为英文。
+语言选择立即生效，并保存在当前设备的浏览器中；不会修改环境的语言区域、
+时区、指纹或浏览器数据。
+
 ## Stack
 
 - **Backend**: FastAPI (Python)

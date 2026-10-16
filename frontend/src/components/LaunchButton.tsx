@@ -1,3 +1,4 @@
+import { useI18n } from "../lib/i18n";
 import { Play, Square, Loader2 } from "lucide-react";
 import { useState } from "react";
 
@@ -8,6 +9,7 @@ interface LaunchButtonProps {
 }
 
 export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
@@ -37,7 +39,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
     return (
       <button disabled className="btn-secondary opacity-60 cursor-not-allowed flex items-center gap-1.5">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
-        <span>{label}</span>
+        <span>{t(label)}</span>
       </button>
     );
   }
@@ -46,7 +48,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
     return (
       <button onClick={handleClick} className="btn-danger flex items-center gap-1.5">
         <Square className="h-3.5 w-3.5" />
-        <span>Stop</span>
+        <span>{t("Stop")}</span>
       </button>
     );
   }
@@ -54,7 +56,7 @@ export function LaunchButton({ status, onLaunch, onStop }: LaunchButtonProps) {
   return (
     <button onClick={handleClick} className="btn-primary flex items-center gap-1.5">
       <Play className="h-3.5 w-3.5" />
-      <span>Launch</span>
+      <span>{t("Launch")}</span>
     </button>
   );
 }

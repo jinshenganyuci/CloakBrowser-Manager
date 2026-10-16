@@ -1,6 +1,8 @@
+import { useI18n } from "../lib/i18n";
 import { useEffect, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { api, type ManagerSettings, type SystemStatus } from "../lib/api";
+import { LanguageSelector } from "./LanguageSelector";
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -13,6 +15,7 @@ interface SettingsPanelProps {
  * future settings drop in as new rows.
  */
 export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
+  const { t } = useI18n();
   const [current, setCurrent] = useState<ManagerSettings | null>(null);
   const [licenseKey, setLicenseKey] = useState("");
   const [channel, setChannel] = useState<"stable" | "preview">("stable");
@@ -75,11 +78,11 @@ export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h2 className="text-sm font-semibold">Settings</h2>
+          <h2 className="text-sm font-semibold">{t("Settings")}</h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-300"
-            title="Close"
+            title={t("Close")}
           >
             <X className="h-4 w-4" />
           </button>
@@ -87,7 +90,12 @@ export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
 
         <div className="space-y-4 p-4">
           <div>
-            <label className="label">CloakBrowser license key</label>
+            <div className="label">{t("Interface language")}</div>
+            <LanguageSelector />
+            <p className="mt-1 text-xs text-gray-500">{t("Language changes apply immediately and are saved on this device.")}</p>
+          </div>
+          <div>
+            <label className="label">{t("CloakBrowser license key")}</label>
             <input
               className="input font-mono"
               type="password"
@@ -97,26 +105,26 @@ export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
               onChange={(e) => setLicenseKey(e.target.value)}
               placeholder={
                 current?.license_key_set
-                  ? `Current: ${current.license_key_masked ?? "set"} — type to replace`
-                  : "cb_… (leave empty to run the free keyless build)"
+                  ? t("Current: {key} — type to replace", { key: current.license_key_masked ?? t("set") })
+                  : t("cb_… (leave empty to run the free keyless build)")
               }
             />
             <p className="mt-1 text-xs text-gray-500">
-              One key per Manager instance — every profile shares its seat pool.{" "}
+              {t("One key per Manager instance — every profile shares its seat pool.")}{" "}
               <a
                 href="https://cloakbrowser.dev/free"
                 target="_blank"
                 rel="noreferrer"
                 className="text-accent hover:underline"
               >
-                Get a free key
+                {t("Get a free key")}
               </a>
               .
             </p>
           </div>
 
           <div>
-            <label className="label">Release channel</label>
+            <label className="label">{t("Release channel")}</label>
             <select
               className="input"
               value={channel}
@@ -124,12 +132,12 @@ export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
                 setChannel(e.target.value === "preview" ? "preview" : "stable")
               }
             >
-              <option value="stable">Stable</option>
-              <option value="preview">Preview (early access)</option>
+              <option value="stable">{t("Stable")}</option>
+              <option value="preview">{t("Preview (early access)")}</option>
             </select>
           </div>
 
-          {error && <p className="text-xs text-red-400">{error}</p>}
+          {error && <p className="text-xs text-red-400">{t(error)}</p>}
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
@@ -139,14 +147,14 @@ export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
               disabled={saving}
               className="text-xs text-gray-500 hover:text-red-400 disabled:opacity-50"
             >
-              Remove key
+              {t("Remove key")}
             </button>
           ) : (
             <span />
           )}
           <div className="flex items-center gap-2">
             <button onClick={onClose} disabled={saving} className="btn-secondary">
-              Cancel
+              {t("Cancel")}
             </button>
             <button
               onClick={handleSave}
@@ -154,7 +162,7 @@ export function SettingsPanel({ onClose, onSaved }: SettingsPanelProps) {
               className="btn-primary flex items-center gap-1.5"
             >
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              <span>{saving ? "Applying…" : "Save"}</span>
+              <span>{t(saving ? "Applying…" : "Save")}</span>
             </button>
           </div>
         </div>

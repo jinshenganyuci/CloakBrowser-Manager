@@ -1,3 +1,4 @@
+import { useI18n } from "../lib/i18n";
 import { useEffect, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ClipboardCopy, Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { api } from "../lib/api";
@@ -24,13 +25,14 @@ export function ProfileViewer({
   onClipboardSyncChange,
   onDisconnect,
 }: ProfileViewerProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   // The canvas plus the drop overlay and transfer feedback; fullscreening the bare canvas
   // would hide every sign that a file is being uploaded.
   const stageRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<any>(null);
   const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; reason?: string } | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [clipboardSync, setClipboardSync] = useState(initialClipboardSync);
   const [dragging, setDragging] = useState(false);
@@ -103,11 +105,11 @@ export function ProfileViewer({
         });
 
         rfb.addEventListener("securityfailure", (e: any) => {
-          setError(`Security failure: ${e.detail.reason}`);
+          setError({ message: "Security failure: {reason}", reason: e.detail.reason });
         });
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to connect");
+          setError({ message: err instanceof Error ? err.message : "Failed to connect" });
         }
       }
     }
@@ -291,8 +293,8 @@ export function ProfileViewer({
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
-          <p className="text-red-400 text-sm mb-2">Connection failed</p>
-          <p className="text-gray-500 text-xs">{error}</p>
+          <p className="text-red-400 text-sm mb-2">{t("Connection failed")}</p>
+          <p className="text-gray-500 text-xs">{t(error.message, { reason: error.reason ?? "" })}</p>
         </div>
       </div>
     );
@@ -305,7 +307,7 @@ export function ProfileViewer({
         <div className="flex items-center gap-2">
           <span className={`h-2 w-2 rounded-full ${connected ? "bg-emerald-400" : "bg-yellow-400 animate-pulse"}`} />
           <span className="text-xs text-gray-400">
-            {connected ? "Connected" : "Connecting..."}
+            {connected ? t("Connected") : t("Connecting...")}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -324,14 +326,14 @@ export function ProfileViewer({
           <button
             onClick={toggleClipboardSync}
             className={`p-1 ${clipboardSync ? "text-accent" : "text-gray-500 hover:text-gray-300"}`}
-            title={clipboardSync ? "Disable clipboard sync" : "Enable clipboard sync"}
+            title={clipboardSync ? t("Disable clipboard sync") : t("Enable clipboard sync")}
           >
             <ClipboardCopy className="h-3.5 w-3.5" />
           </button>
           <button
             onClick={toggleFullscreen}
             className="text-gray-500 hover:text-gray-300 p-1"
-            title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            title={fullscreen ? t("Exit fullscreen") : t("Fullscreen")}
           >
             {fullscreen ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
           </button>
@@ -372,10 +374,10 @@ export function ProfileViewer({
                   </div>
                   <div className="text-xs text-gray-400">
                     {transfer.state === "uploading"
-                      ? "Uploading to this profile..."
+                      ? t("Uploading to this profile...")
                       : transfer.state === "done"
-                        ? `In profile files — pick it from Uploads — ${profileName} in the page's file dialog`
-                        : transfer.error}
+                        ? t("In profile files — pick it from Uploads — {profile} in the page's file dialog", { profile: profileName })
+                        : transfer.error && t(transfer.error)}
                   </div>
                   {transfer.state === "failed" && (
                     <button
@@ -383,7 +385,7 @@ export function ProfileViewer({
                       onClick={() => void files.retryTransfer(transfer.id)}
                       className="mt-1 text-xs text-accent hover:underline"
                     >
-                      Retry
+                      {t("Retry")}
                     </button>
                   )}
                 </div>
@@ -392,7 +394,7 @@ export function ProfileViewer({
                     type="button"
                     onClick={() => files.dismissTransfer(transfer.id)}
                     className="p-0.5 text-gray-500 hover:text-gray-300"
-                    aria-label={`Dismiss ${transfer.name}`}
+                    aria-label={t("Dismiss {name}", { name: transfer.name })}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -405,9 +407,9 @@ export function ProfileViewer({
         {dragging && (
           <div className="pointer-events-none absolute inset-0 z-10 m-2 flex items-center justify-center rounded-md border-2 border-dashed border-accent bg-black/70">
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-100">Drop to upload to this profile</p>
+              <p className="text-sm font-medium text-gray-100">{t("Drop to upload to this profile")}</p>
               <p className="mt-1 text-xs text-gray-400">
-                Then pick it from Uploads — {profileName} in the page's file dialog
+                {t("Then pick it from Uploads — {profile} in the page's file dialog", { profile: profileName })}
               </p>
             </div>
           </div>

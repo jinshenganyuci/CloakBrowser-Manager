@@ -1,6 +1,7 @@
 import { Check, ChevronDown, Copy, Loader2, RotateCcw, Save, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import type {
   HostOS,
   Profile,
@@ -41,6 +42,7 @@ const TAG_COLORS = [
 ];
 
 export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onReset, onDuplicate, onCancel }: ProfileFormProps) {
+  const { t } = useI18n();
   const isEdit = profile !== null;
 
   const [form, setForm] = useState<ProfileCreateData>({
@@ -164,7 +166,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
 
   const handleDelete = async () => {
     if (!onDelete) return;
-    if (!confirm("Delete this profile? Browser data will be permanently removed.")) return;
+    if (!confirm(t("Delete this profile? Browser data will be permanently removed."))) return;
     setDeleting(true);
     try {
       await onDelete();
@@ -177,8 +179,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
     if (!onReset) return;
     if (
       !confirm(
-        "Reset this profile? Cookies, history and site data will be wiped and a " +
-          "new fingerprint generated. Bookmarks, settings and default search are kept.",
+        t("Reset this profile? Cookies, history and site data will be wiped and a new fingerprint generated. Bookmarks, settings and default search are kept."),
       )
     )
       return;
@@ -217,10 +218,8 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
     setDuplicateMenuOpen(false);
     if (!onDuplicate) return;
     const message = includeBrowserState
-      ? "Duplicate this profile with its browser state? A new profile with the " +
-        "same settings, fingerprint, cookies and logged-in sessions is created."
-      : "Duplicate this profile? A new profile with the same settings and " +
-        "fingerprint is created. Browser state (cookies, history) is not copied.";
+      ? t("Duplicate this profile with its browser state? A new profile with the same settings, fingerprint, cookies and logged-in sessions is created.")
+      : t("Duplicate this profile? A new profile with the same settings and fingerprint is created. Browser state (cookies, history) is not copied.");
     if (!confirm(message)) return;
     setDuplicating(true);
     try {
@@ -278,7 +277,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-semibold">
-            {isEdit ? "Edit Profile" : "New Profile"}
+            {isEdit ? t("Edit Profile") : t("New Profile")}
           </h2>
           {isEdit && onDuplicate && (
             <div ref={duplicateMenuRef} className="relative flex items-stretch">
@@ -286,11 +285,11 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 type="button"
                 onClick={() => handleDuplicate(false)}
                 disabled={duplicating}
-                title="Duplicate settings and fingerprint only"
+                title={t("Duplicate settings and fingerprint only")}
                 className="btn-secondary flex items-center gap-1.5 rounded-r-none"
               >
                 <Copy className="h-3.5 w-3.5" />
-                <span>{duplicating ? "Duplicating..." : "Duplicate"}</span>
+                <span>{duplicating ? t("Duplicating...") : t("Duplicate")}</span>
               </button>
               <button
                 ref={duplicateTriggerRef}
@@ -299,7 +298,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 disabled={duplicating}
                 aria-haspopup="menu"
                 aria-expanded={duplicateMenuOpen}
-                aria-label="Duplicate options"
+                aria-label={t("Duplicate options")}
                 className="btn-secondary flex items-center rounded-l-none border-l border-border px-2"
               >
                 <ChevronDown className="h-3.5 w-3.5" />
@@ -315,8 +314,8 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                     onClick={() => handleDuplicate(false)}
                     className="w-full px-3 py-2 text-left hover:bg-surface-3"
                   >
-                    <div className="text-sm text-gray-200">Settings and fingerprint only</div>
-                    <div className="text-xs text-gray-500">Starts with empty browser state</div>
+                    <div className="text-sm text-gray-200">{t("Settings and fingerprint only")}</div>
+                    <div className="text-xs text-gray-500">{t("Starts with empty browser state")}</div>
                   </button>
                   <button
                     type="button"
@@ -325,11 +324,11 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                     onClick={() => handleDuplicate(true)}
                     className="w-full px-3 py-2 text-left hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                   >
-                    <div className="text-sm text-gray-200">With browser state</div>
+                    <div className="text-sm text-gray-200">{t("With browser state")}</div>
                     <div className="text-xs text-gray-500">
                       {profile?.status === "stopped"
-                        ? "Cookies, logged-in sessions and history"
-                        : "Stop the profile first"}
+                        ? t("Cookies, logged-in sessions and history")
+                        : t("Stop the profile first")}
                     </div>
                   </button>
                 </div>
@@ -344,7 +343,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               className="btn-secondary flex items-center gap-1.5"
             >
               {resetDone ? <Check className="h-3.5 w-3.5" /> : <RotateCcw className="h-3.5 w-3.5" />}
-              <span>{resetDone ? "Reset done" : resetting ? "Resetting..." : "Reset"}</span>
+              <span>{resetDone ? t("Reset done") : resetting ? t("Resetting...") : t("Reset")}</span>
             </button>
           )}
           {isEdit && onDelete && (
@@ -355,17 +354,17 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               className="btn-danger flex items-center gap-1.5"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>{deleting ? "Deleting..." : "Delete"}</span>
+              <span>{deleting ? t("Deleting...") : t("Delete")}</span>
             </button>
           )}
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={onCancel} className="btn-secondary">
-            Cancel
+            {t("Cancel")}
           </button>
           <button type="submit" disabled={saving || saved} className="btn-primary flex items-center gap-1.5">
             {saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-            <span>{saved ? "Saved" : saving ? "Saving..." : isEdit ? "Save" : "Create"}</span>
+            <span>{saved ? t("Saved") : saving ? t("Saving...") : isEdit ? t("Save") : t("Create")}</span>
           </button>
         </div>
       </div>
@@ -374,11 +373,11 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
         {/* Last preview — the last frame captured before the browser stopped */}
         {isEdit && !previewError && (
           <section>
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Last preview</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Last preview")}</h3>
             <img
               src={`/api/profiles/${profile!.id}/screenshot?t=${previewBuster}`}
               onError={() => setPreviewError(true)}
-              alt="Last browser preview"
+              alt={t("Last browser preview")}
               className="w-full rounded-md border border-border bg-surface-1 object-contain max-h-72"
             />
           </section>
@@ -386,33 +385,33 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
 
         {/* Basic */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Basic</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Basic")}</h3>
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="label">Profile Name</label>
+              <label className="label">{t("Profile Name")}</label>
               <input
                 className="input"
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder="e.g. Amazon Seller #1"
+                placeholder={t("e.g. Amazon Seller #1")}
                 required
               />
             </div>
             <div className="col-span-2">
-              <label className="label">Fingerprint Seed</label>
+              <label className="label">{t("Fingerprint Seed")}</label>
               <div className="flex gap-2">
                 <input
                   className="input flex-1 no-spin"
                   type="number"
                   value={form.fingerprint_seed ?? ""}
                   onChange={(e) => set("fingerprint_seed", e.target.value ? Number(e.target.value) : null)}
-                  placeholder="Auto (random)"
+                  placeholder={t("Auto (random)")}
                 />
                 <button
                   type="button"
                   onClick={randomizeSeed}
                   className="btn-secondary px-2.5"
-                  title="Randomize seed"
+                  title={t("Randomize seed")}
                 >
                   <svg className="h-5 w-5" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
                     {/* Right face - lightest */}
@@ -446,10 +445,10 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
 
         {/* Network */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Network</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Network")}</h3>
           <div className="space-y-3">
             <div>
-              <label className="label">Proxy</label>
+              <label className="label">{t("Proxy")}</label>
               <div className="flex gap-2">
                 <input
                   className="input flex-1"
@@ -467,7 +466,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                   disabled={!form.proxy || testingProxy}
                 >
                   {testingProxy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Test
+                  {t("Test")}
                 </button>
               </div>
               {proxyTest && !testingProxy && (
@@ -480,13 +479,13 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                         ? ` · ${[proxyTest.city, proxyTest.country].filter(Boolean).join(", ")}`
                         : "") +
                       (proxyTest.latency_ms != null ? ` · ${proxyTest.latency_ms}ms` : "")
-                    : proxyTest.error || "Proxy test failed"}
+                    : t(proxyTest.error || "Proxy test failed")}
                 </p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="label">Timezone</label>
+                <label className="label">{t("Timezone")}</label>
                 <input
                   className="input"
                   value={form.timezone ?? ""}
@@ -495,7 +494,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 />
               </div>
               <div>
-                <label className="label">Locale</label>
+                <label className="label">{t("Locale")}</label>
                 <input
                   className="input"
                   value={form.locale ?? ""}
@@ -511,17 +510,17 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 onChange={(e) => set("geoip", e.target.checked)}
                 className="rounded border-border bg-surface-2"
               />
-              Auto-detect timezone/locale from the proxy exit, or host public IP without a proxy (GeoIP)
+              {t("Auto-detect timezone/locale from the proxy exit, or host public IP without a proxy (GeoIP)")}
             </label>
           </div>
         </section>
 
         {/* Hardware */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Hardware</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Hardware")}</h3>
           <div className="space-y-3">
             <div>
-              <label className="label">Screen Resolution</label>
+              <label className="label">{t("Screen Resolution")}</label>
               <select
                 className="input"
                 value={currentResolution}
@@ -534,15 +533,15 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 }}
               >
                 {Object.keys(RESOLUTION_PRESETS).map((name) => (
-                  <option key={name} value={name}>{name}</option>
+                  <option key={name} value={name}>{t(name)}</option>
                 ))}
-                <option value="custom">Custom</option>
+                <option value="custom">{t("Custom")}</option>
               </select>
             </div>
             {currentResolution === "custom" && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="label">Width</label>
+                  <label className="label">{t("Width")}</label>
                   <input
                     className="input"
                     type="number"
@@ -551,7 +550,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                   />
                 </div>
                 <div>
-                  <label className="label">Height</label>
+                  <label className="label">{t("Height")}</label>
                   <input
                     className="input"
                     type="number"
@@ -562,14 +561,14 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               </div>
             )}
             <div>
-              <label className="label">GPU Family</label>
+              <label className="label">{t("GPU Family")}</label>
               {hostOs === "macos" ? (
                 <select className="input" value="auto" disabled>
-                  <option value="auto">Apple Silicon (automatic)</option>
+                  <option value="auto">{t("Apple Silicon (automatic)")}</option>
                 </select>
               ) : hostOs === null ? (
                 <select className="input" value="auto" disabled>
-                  <option value="auto">Automatic (detecting runtime…)</option>
+                  <option value="auto">{t("Automatic (detecting runtime…)")}</option>
                 </select>
               ) : (
                 <select
@@ -577,15 +576,15 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                   value={form.gpu_family ?? "auto"}
                   onChange={(e) => set("gpu_family", e.target.value as "auto" | "nvidia" | "intel")}
                 >
-                  <option value="auto">Auto (from seed)</option>
+                  <option value="auto">{t("Auto (from seed)")}</option>
                   <option value="nvidia">NVIDIA</option>
                   <option value="intel">Intel</option>
                 </select>
               )}
               <p className="text-xs text-gray-500 mt-1">
                 {hostOs === "macos"
-                  ? "The seed selects a coherent Apple Silicon model and matching hardware profile."
-                  : "The seed selects a coherent GPU model, CPU, memory, and screen profile within the family."}
+                  ? t("The seed selects a coherent Apple Silicon model and matching hardware profile.")
+                  : t("The seed selects a coherent GPU model, CPU, memory, and screen profile within the family.")}
               </p>
             </div>
           </div>
@@ -593,7 +592,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
 
         {/* Behavior */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Behavior</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Behavior")}</h3>
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
               <input
@@ -602,18 +601,18 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 onChange={(e) => set("humanize", e.target.checked)}
                 className="rounded border-border bg-surface-2"
               />
-              Human-like mouse, keyboard, and scroll behavior
+              {t("Human-like mouse, keyboard, and scroll behavior")}
             </label>
             {form.humanize && (
               <div>
-                <label className="label">Human Preset</label>
+                <label className="label">{t("Human Preset")}</label>
                 <select
                   className="input"
                   value={form.human_preset}
                   onChange={(e) => set("human_preset", e.target.value)}
                 >
-                  <option value="default">Default (normal speed)</option>
-                  <option value="careful">Careful (slower, deliberate)</option>
+                  <option value="default">{t("Default (normal speed)")}</option>
+                  <option value="careful">{t("Careful (slower, deliberate)")}</option>
                 </select>
               </div>
             )}
@@ -625,7 +624,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                   onChange={(e) => set("clipboard_sync", e.target.checked)}
                   className="rounded border-border bg-surface-2"
                 />
-                Enable clipboard sync by default in VNC viewer
+                {t("Enable clipboard sync by default in VNC viewer")}
               </label>
             )}
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
@@ -635,7 +634,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 onChange={(e) => set("auto_launch", e.target.checked)}
                 className="rounded border-border bg-surface-2"
               />
-              Launch automatically when Manager starts
+              {t("Launch automatically when Manager starts")}
             </label>
             <label className="flex items-start gap-2 text-sm text-gray-300 cursor-pointer">
               <input
@@ -645,9 +644,9 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 className="rounded border-border bg-surface-2 mt-0.5"
               />
               <span>
-                Save a preview screenshot of the browser
+                {t("Save a preview screenshot of the browser")}
                 <span className="block text-xs text-gray-500">
-                  Captures the page periodically while running, shown here after the profile stops.
+                  {t("Captures the page periodically while running, shown here after the profile stops.")}
                 </span>
               </span>
             </label>
@@ -659,9 +658,9 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
                 className="rounded border-border bg-surface-2 mt-0.5"
               />
               <span>
-                Restore previous tabs on launch
+                {t("Restore previous tabs on launch")}
                 <span className="block text-xs text-gray-500">
-                  Reopens the tabs that were open when this profile was last stopped.
+                  {t("Reopens the tabs that were open when this profile was last stopped.")}
                 </span>
               </span>
             </label>
@@ -670,7 +669,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
 
         {/* Compatibility */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Compatibility</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Compatibility")}</h3>
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
             <input
               type="checkbox"
@@ -678,7 +677,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               onChange={(e) => set("allow_3p_cookies", e.target.checked)}
               className="rounded border-border bg-surface-2"
             />
-            Allow third-party cookies for login, SSO, and challenge flows
+            {t("Allow third-party cookies for login, SSO, and challenge flows")}
           </label>
           <label className="flex items-start gap-2 text-sm text-gray-300 cursor-pointer mt-3">
             <input
@@ -688,9 +687,9 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               className="rounded border-border bg-surface-2 mt-0.5"
             />
             <span>
-              Transparent proxy connection
+              {t("Transparent proxy connection")}
               <span className="block text-xs text-gray-500">
-                Stronger proxy connection mode. Requires an http:// proxy with a username and password.
+                {t("Stronger proxy connection mode. Requires an http:// proxy with a username and password.")}
               </span>
             </span>
           </label>
@@ -702,9 +701,9 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               className="rounded border-border bg-surface-2 mt-0.5"
             />
             <span>
-              Portable cookies
+              {t("Portable cookies")}
               <span className="block text-xs text-gray-500">
-                Lets this profile move to another machine with its logins. Only cookies saved while this is on are portable, so turn it on before logging in.
+                {t("Lets this profile move to another machine with its logins. Only cookies saved while this is on are portable, so turn it on before logging in.")}
               </span>
             </span>
           </label>
@@ -716,9 +715,9 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               className="rounded border-border bg-surface-2 mt-0.5"
             />
             <span>
-              Set Google as the default search engine
+              {t("Set Google as the default search engine")}
               <span className="block text-xs text-gray-500">
-                Adds a few seconds to the profile's first launch (one-time setup).
+                {t("Adds a few seconds to the profile's first launch (one-time setup).")}
               </span>
             </span>
           </label>
@@ -726,7 +725,7 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
 
         {/* Tags */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Tags</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Tags")}</h3>
           {(form.tags ?? []).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {(form.tags ?? []).map((t) => (
@@ -768,18 +767,18 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-              placeholder="Add tag..."
+              placeholder={t("Add tag...")}
             />
             <button type="button" onClick={addTag} className="btn-secondary text-xs">
-              Add
+              {t("Add")}
             </button>
           </div>
         </section>
 
         {/* Extensions */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Extensions</h3>
-          <p className="text-xs text-gray-500 mb-2">Add one unpacked Chrome extension directory per path.</p>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Extensions")}</h3>
+          <p className="text-xs text-gray-500 mb-2">{t("Add one unpacked Chrome extension directory per path.")}</p>
           {(form.extension_paths ?? []).length > 0 && (
             <div className="space-y-1.5 mb-3">
               {(form.extension_paths ?? []).map((path, index) => (
@@ -800,17 +799,17 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addExtensionPath(); } }}
               placeholder="/data/extensions/ublock"
             />
-            <button type="button" onClick={addExtensionPath} className="btn-secondary text-xs">Add</button>
+            <button type="button" onClick={addExtensionPath} className="btn-secondary text-xs">{t("Add")}</button>
           </div>
         </section>
 
         {/* Advanced */}
         <details className="rounded-md border border-border bg-surface-1 p-3">
           <summary className="cursor-pointer text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Advanced launch arguments
+            {t("Advanced launch arguments")}
           </summary>
           <p className="text-xs text-gray-500 my-3">
-            Unrestricted Chromium flags. Advanced arguments can override Manager-controlled behavior.
+            {t("Unrestricted Chromium flags. Advanced arguments can override Manager-controlled behavior.")}
           </p>
           {(form.launch_args ?? []).length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">
@@ -835,18 +834,18 @@ export function ProfileForm({ profile, hostOs, viewerMode, onSave, onDelete, onR
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLaunchArg(); } }}
               placeholder="--disable-features=Foo"
             />
-            <button type="button" onClick={addLaunchArg} className="btn-secondary text-xs">Add</button>
+            <button type="button" onClick={addLaunchArg} className="btn-secondary text-xs">{t("Add")}</button>
           </div>
         </details>
 
         {/* Notes */}
         <section>
-          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Notes</h3>
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">{t("Notes")}</h3>
           <textarea
             className="input min-h-[80px] resize-y"
             value={form.notes ?? ""}
             onChange={(e) => set("notes", e.target.value || null)}
-            placeholder="Optional notes about this profile..."
+            placeholder={t("Optional notes about this profile...")}
           />
         </section>
       </div>

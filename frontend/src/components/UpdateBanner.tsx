@@ -1,3 +1,4 @@
+import { useI18n } from "../lib/i18n";
 import { ArrowUpCircle, X } from "lucide-react";
 import { api, type UpdateInfo } from "../lib/api";
 
@@ -13,6 +14,7 @@ export function UpdateBanner({
   info: UpdateInfo;
   onDismiss: () => void;
 }) {
+  const { t } = useI18n();
   const openRelease = () => {
     if (!info.release_url) return;
     // Open in the host's default browser. The backend runs locally, so this
@@ -25,19 +27,19 @@ export function UpdateBanner({
       <ArrowUpCircle className="h-3.5 w-3.5 flex-shrink-0" />
       <span>
         CloakBrowser Manager{" "}
-        <span className="font-mono font-medium">{info.latest}</span> is available.
+        <span className="font-mono font-medium">{info.latest}</span>{t(" is available.")}
       </span>
       <button
         onClick={openRelease}
         className="font-medium underline underline-offset-2 hover:text-cyan-200"
       >
-        Download
+        {t("Download")}
       </button>
       <button
         onClick={onDismiss}
         className="ml-1 p-0.5 text-cyan-400/70 hover:text-cyan-200"
-        title="Dismiss"
-        aria-label="Dismiss update notification"
+        title={t("Dismiss")}
+        aria-label={t("Dismiss update notification")}
       >
         <X className="h-3.5 w-3.5" />
       </button>
